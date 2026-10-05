@@ -1,0 +1,44 @@
+--- a/support/launchctl.c
++++ b/support/launchctl.c
+@@ -30,6 +30,11 @@
+ 
+ #include "xpc.h"
+ #include "xpc_private.h"
++
++#include "xpc_build_version.h" /* generated: this build's banner */
++#ifndef XPC_BOOTSTRAP_VERSION
++#define XPC_BOOTSTRAP_VERSION "Darwin Bootstrapper Version (unknown build)"
++#endif
+ #include <CoreFoundation/CoreFoundation.h>
+ #include <CoreFoundation/CFPriv.h>
+ #include <CoreFoundation/CFLogUtilities.h>
+@@ -228,6 +233,7 @@
+ static int help_cmd(int argc, char *const argv[]);
+ static int status_cmd(int argc, char *const argv[]);
+ static int attach_cmd(int argc, char *const argv[]);
++static int version_cmd(int argc, char *const argv[]);
+ 
+ static const struct {
+ 	const char *name;
+@@ -244,6 +250,7 @@
+ 	{ "bootstrap",		bootstrap_cmd,			"Bootstrap launchd" },
+ 	{ "list",			list_cmd,				"List jobs and information about jobs" },
+ 	{ "status",			status_cmd,				"Query the launchd instance (housekeeping probe)." },
++	{ "version",			version_cmd,				"Print the bootstrapper version." },
+ 	{ "attach",			attach_cmd,				"Attach to a service's process for debugging" },
+ 	{ "setenv",			setenv_cmd,				"Set an environmental variable in launchd" },
+ 	{ "unsetenv",		unsetenv_cmd,			"Unset an environmental variable in launchd" },
+@@ -3189,6 +3196,13 @@
+ }
+ 
+ static int
++version_cmd(int argc __attribute__((unused)), char * const argv[] __attribute__((unused)))
++{
++	fprintf(stdout, "%s\n", XPC_BOOTSTRAP_VERSION);
++	return 0;
++}
++
++static int
+ attach_cmd(int argc, char *const argv[])
+ {
+ 	xpc_object_t request = NULL;
