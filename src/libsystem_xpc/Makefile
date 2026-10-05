@@ -1,4 +1,4 @@
-# bmake component build for src/libsystem/xpc.
+# bmake component build for src/libsystem_xpc.
 #
 # This is the xpc component of the libSystem family, shaped like Apple's
 # libsystem_xpc: it links its /usr/lib/system siblings directly and uses

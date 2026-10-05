@@ -2,13 +2,18 @@
 #
 # The tree is shaped like Apple's libSystem family:
 #
-#   src/libsystem/xpc/  the xpc component -> libsystem_xpc.dylib (own Makefile)
+#   src/libsystem_xpc/  the xpc component -> libsystem_xpc.dylib (own Makefile)
 #   src/launchctl/   launchctl (system_cmds territory, NOT libSystem)
 #   src/launchd/     launchd_stub test double (launchd territory, NOT libSystem)
-#   src/XPC.framework/  re-export umbrella project (Modules + Resources)
-#   src/apple/       pristine apple-oss submodules (reference sources only)
-#   mk/patches/      numbered patch series applied to copies of src/apple/*
+#                     plus the XPC.framework umbrella payload
+#                     (module.modulemap, Info.plist)
 #   include/         SPI declarations no SDK ships, for the Apple sources
+#   mk/patches/      numbered patch series applied to copies of those sources
+#
+# The apple-oss sources themselves are not vendored here; they live in the
+# surrounding CoreOS tree (DarwinSrc/CoreOS/Sources/launchd, .../libinfo)
+# and are located by LAUNCHD_UPSTREAM / LIBINFO_UPSTREAM below, so this
+# repo can be built either in place or beside its own copies.
 
 CC	?= clang
 RM	= rm -rf
@@ -23,22 +28,41 @@ LAUNCHD	 := ${RELEASE}/launchd_stub
 FRAMEWORK:= ${RELEASE}/XPC.framework
 
 SDK_PATH!=	xcrun --show-sdk-path 2>/dev/null || true
-INCLUDES := -I${.CURDIR}/src/libsystem/xpc/include -I${SDK_PATH}/usr/include
+INCLUDES := -I${.CURDIR}/src/libsystem_xpc/include -I${SDK_PATH}/usr/include
 DEFINES := -DMACOSX -DDARWIN64 -DDARWIN -DBUILD_DARWIN
 CFLAGS	:= -std=c11 -fblocks -g -O0 -Wall -Wextra -Werror \
 		-MMD -MP ${INCLUDES} ${DEFINES}
 
-# Apple sources (src/apple/*) stay pristine.  The build copies the launchd
-# submodule into build/launchd-src and applies mk/patches/launchd/*.patch
-# in order to the copy, the way xcode-tools does it: a numbered patch
-# series per component, applied with `patch -p1 --forward`.
+# launchd is Apple's, and stays pristine: the build rsyncs it into
+# build/launchd-src and applies mk/patches/launchd/*.patch in order to
+# the copy, the way xcode-tools does it: a numbered patch series per
+# component, applied with `patch -p1 --forward`.
+#
+# Upstream lives in the CoreOS tree beside this one.  Candidates are
+# probed in order and the first that looks like launchd wins, so the tree
+# builds in place and also standalone beside a copy of its own; set
+# LAUNCHD_UPSTREAM=<path> to name one explicitly.
+.if !defined(LAUNCHD_UPSTREAM)
+.for _d in ${.CURDIR}/../../Sources/launchd ${.CURDIR}/src/apple/launchd
+.if !defined(LAUNCHD_UPSTREAM) && exists(${_d}/liblaunch/liblaunch.c)
+LAUNCHD_UPSTREAM:=	${_d}
+.endif
+.endfor
+.endif
+
 LAUNCHD_SRC	:= ${BUILD}/launchd-src
 LAUNCHD_GEN	:= ${BUILD}/gen/launchd
 LAUNCHD_PATCHES!=	ls ${.CURDIR}/mk/patches/launchd/*.patch 2>/dev/null || true
 
 ${LAUNCHD_SRC}/.patched: ${LAUNCHD_PATCHES}
+	@test -n "${LAUNCHD_UPSTREAM}" || { \
+	    ${ECHO} "launchd: no upstream launchd found -- tried:"; \
+	    ${ECHO} "    ${.CURDIR}/../../Sources/launchd"; \
+	    ${ECHO} "    ${.CURDIR}/src/apple/launchd"; \
+	    ${ECHO} "pass LAUNCHD_UPSTREAM=<path>"; \
+	    exit 1; }
 	@mkdir -p ${LAUNCHD_SRC}
-	@rsync -a --delete --exclude .git src/apple/launchd/ ${LAUNCHD_SRC}/
+	@rsync -a --delete --exclude .git ${LAUNCHD_UPSTREAM}/ ${LAUNCHD_SRC}/
 	@for p in ${LAUNCHD_PATCHES}; do \
 	    ${ECHO} "  apply $${p}"; \
 	    (cd ${LAUNCHD_SRC} && patch -s -p1 --forward < "$$p") || exit 1; \
@@ -57,7 +81,8 @@ patch-apple: ${LAUNCHD_SRC}/.patched
 # SDK carries.  A built xcode-tools is found beside this tree, or inside
 # LibreDarwin; INTERNAL_SDK=<path> names another.
 .if !defined(INTERNAL_SDK)
-.for _xct in ${.CURDIR}/../xcode-tools ${.CURDIR}/../../Developer/xcode-tools
+.for _xct in ${.CURDIR}/../../../../xcode-tools ${.CURDIR}/../xcode-tools \
+    ${.CURDIR}/../../../Developer/xcode-tools
 _isdk:=	${_xct}/build/release/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.Internal.sdk
 .if !defined(INTERNAL_SDK) && exists(${_isdk}/usr/include)
 INTERNAL_SDK:=	${_isdk}
@@ -111,7 +136,15 @@ ${OBJDIR}/liblaunch/${_s:T:R}.o: ${LAUNCHD_GEN}/.mig
 # launchd: Apple's launchd-842 from the patched copy, the MIG stubs it
 # serves and calls, and the libxpc SPI only it uses (src/launchd/
 # xpc_launchd.c), linked against libsystem_xpc.  Same
-# flags as liblaunch, plus Libinfo's private libinfo.h.
+# flags as liblaunch, plus Libinfo's private libinfo.h.  Libinfo is
+# apple-oss as well, so it is located the same way launchd is.
+.if !defined(LIBINFO_UPSTREAM)
+.for _d in ${.CURDIR}/../../Sources/libinfo ${.CURDIR}/src/apple/libinfo
+.if !defined(LIBINFO_UPSTREAM) && exists(${_d}/lookup.subproj)
+LIBINFO_UPSTREAM:=	${_d}
+.endif
+.endfor
+.endif
 LAUNCHD_REAL	:= ${RELEASE}/launchd
 LAUNCHD_SRCS	:= ${LAUNCHD_SRC}/src/core.c ${LAUNCHD_SRC}/src/ipc.c \
 		   ${LAUNCHD_SRC}/src/kill2.c ${LAUNCHD_SRC}/src/ktrace.c \
@@ -125,7 +158,7 @@ LAUNCHD_SRCS	:= ${LAUNCHD_SRC}/src/core.c ${LAUNCHD_SRC}/src/ipc.c \
 		   ${LAUNCHD_GEN}/mach_excServer.c ${LAUNCHD_GEN}/notifyServer.c
 LAUNCHD_OBJS	:= ${LAUNCHD_SRCS:T:R:S,^,${OBJDIR}/launchd/,:S,$,.o,}
 LAUNCHD_CFLAGS	:= ${LIBLAUNCH_CFLAGS} \
-		   -idirafter ${.CURDIR}/src/apple/libinfo/lookup.subproj
+		   -idirafter ${LIBINFO_UPSTREAM:UNDEFINED=${.CURDIR}/../../Sources/libinfo}/lookup.subproj
 
 .for _s in ${LAUNCHD_SRCS}
 ${OBJDIR}/launchd/${_s:T:R}.o: ${LAUNCHD_GEN}/.mig
@@ -150,18 +183,18 @@ launchd: ${LAUNCHD} ${LAUNCHD_REAL}
 # The component Makefile owns the object dependency graph (including its
 # .d files), so the root always delegates; the sub-make decides freshness.
 ${LIBS}: ${LIBLAUNCH_OBJS}
-	${.MAKE} -C src/libsystem/xpc RELEASE=${RELEASE} OBJDIR=${OBJDIR} \
+	${.MAKE} -C src/libsystem_xpc RELEASE=${RELEASE} OBJDIR=${OBJDIR} \
 	    EXTRA_OBJS="${LIBLAUNCH_OBJS}"
 
 ${RELEASE}:
 	@mkdir -p $@
 
-${LAUNCHCTL}: src/launchctl/launchctl.c src/libsystem/xpc/include/xpc.h ${LIBS}
+${LAUNCHCTL}: src/launchctl/launchctl.c src/libsystem_xpc/include/xpc.h ${LIBS}
 	${CC} ${CFLAGS} src/launchctl/launchctl.c -L${RELEASE} -lsystem_xpc \
 	    -Wl,-rpath,${RELEASE} -o $@
 
 ${LAUNCHD}: src/launchd/launchd_stub.c src/launchctl/launchctl.c \
-    src/libsystem/xpc/include/xpc.h ${LIBS}
+    src/libsystem_xpc/include/xpc.h ${LIBS}
 	${CC} ${CFLAGS} -DXNUXPORTS_EMBED -c src/launchctl/launchctl.c \
 	    -o ${OBJDIR}/launchctl_embed.o
 	${CC} ${CFLAGS} src/launchd/launchd_stub.c ${OBJDIR}/launchctl_embed.o \
@@ -174,9 +207,9 @@ ${FRAMEWORK}: ${LIBS} ${RELEASE}
 	@mkdir -p $@/Versions/A/Headers $@/Versions/A/Modules $@/Versions/A/Resources
 	${CC} -dynamiclib -install_name @rpath/XPC.framework/Versions/A/XPC \
 	    -Wl,-reexport_library,${LIBS} -o $@/Versions/A/XPC
-	cp src/libsystem/xpc/include/xpc.h $@/Versions/A/Headers/
-	cp src/XPC.framework/Modules/module.modulemap $@/Versions/A/Modules/ 2>/dev/null || true
-	cp src/XPC.framework/Resources/Info.plist $@/Versions/A/Resources/ 2>/dev/null || true
+	cp src/libsystem_xpc/include/xpc.h $@/Versions/A/Headers/
+	cp src/libsystem_xpc/module.modulemap $@/Versions/A/Modules/
+	cp src/libsystem_xpc/Info.plist $@/Versions/A/Resources/
 	ln -sfh A $@/Versions/Current
 	ln -sfh Versions/Current/Headers $@/Headers
 	ln -sfh Versions/Current/Modules $@/Modules

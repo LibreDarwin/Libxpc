@@ -7,7 +7,7 @@
 # clangd.  They mirror the top-level Makefile:
 #
 #   CFLAGS   := -std=c11 -fblocks -g -O0 -Wall -Wextra -Werror ...
-#   INCLUDES := -I${.CURDIR}/src/libsystem/xpc/include -I${SDK_PATH}/usr/include
+#   INCLUDES := -I${.CURDIR}/src/libsystem_xpc/include -I${SDK_PATH}/usr/include
 #   DEFINES  := -DMACOSX -DDARWIN64 -DDARWIN -DBUILD_DARWIN
 #
 # The SDK is resolved by clangd itself from the host Xcode toolchain, so
@@ -31,7 +31,7 @@ CompileFlags:
     - "-DDARWIN"
     - "-DBUILD_DARWIN"
     - "-I"
-    - "/Users/sunneva/xnuports-root/devel/DarwinSrc/CoreOS/Staging/Libxpc/src/libsystem/xpc/include"
+    - "/Users/sunneva/xnuports-root/devel/DarwinSrc/CoreOS/Staging/Libxpc/src/libsystem_xpc/include"
     - "-I"
     - "/Users/sunneva/xnuports-root/devel/DarwinSrc/CoreOS/Staging/Libxpc/include"
   Remove:
