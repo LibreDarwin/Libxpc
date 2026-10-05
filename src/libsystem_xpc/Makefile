@@ -27,8 +27,17 @@ INCLUDES := -I${.CURDIR}/include -I${SDKROOT}/usr/include
 DEFINES := -DMACOSX -DDARWIN64 -DDARWIN -DBUILD_DARWIN
 CFLAGS	:= -std=c11 -fblocks -g -O0 -Wall -Wextra -Werror \
 		-MMD -MP ${INCLUDES} ${DEFINES}
+# vproc_swap_integer is unexported on purpose.  Apple's libvproc.c implements it
+# as a MIG client (vproc_mig_swap_integer) for an interface launchd stopped
+# serving when it moved to XPC, so ours always returns nonzero.  macOS's own
+# copy -- closed when the vproc_* API moved into libxpc -- still works, and
+# lives in libSystem, so leaving this out of the export table is what lets
+# launchctl's direct calls reach it instead of the dead one here.  Internal
+# callers in liblaunch/libvproc still link against ours; only the export is
+# suppressed.
 LDFLAGS	:= -dynamiclib -install_name @rpath/libsystem_xpc.dylib \
-		-L${SDKROOT}/usr/lib/system
+		-L${SDKROOT}/usr/lib/system \
+		-Wl,-unexported_symbol,_vproc_swap_integer
 
 # Apple's link graph for libsystem_xpc: the siblings that still exist as
 # separate /usr/lib/system install names on this SDK generation.
