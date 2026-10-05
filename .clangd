@@ -1,0 +1,38 @@
+# clangd configuration for the LibreDarwin libxpc tree.
+#
+# Copyright (C) 2026, LibreDarwin
+#
+# This tree has no compile_commands.json -- the Makefiles emit -MMD -MP
+# dependency files only -- so the flags below are the whole story for
+# clangd.  They mirror the top-level Makefile:
+#
+#   CFLAGS   := -std=c11 -fblocks -g -O0 -Wall -Wextra -Werror ...
+#   INCLUDES := -I${.CURDIR}/src/libsystem/xpc/include -I${SDK_PATH}/usr/include
+#   DEFINES  := -DMACOSX -DDARWIN64 -DDARWIN -DBUILD_DARWIN
+#
+# The SDK is resolved by clangd itself from the host Xcode toolchain, so
+# -I${SDK_PATH}/usr/include is not repeated here.  The two -I entries are
+# absolute because clangd resolves relative ones against each translation
+# unit's own directory, which varies across src/ in this tree.
+#
+# The root include/ carries SPI declarations no SDK ships, and is needed
+# for the Apple sources under src/apple/ and src/launchd/.
+#
+# -Werror is dropped so editor diagnostics render as warnings, matching
+# how an interactive session expects WIP code to behave.
+
+CompileFlags:
+  Compiler: clang
+  Add:
+    - "-std=c11"
+    - "-fblocks"
+    - "-DMACOSX"
+    - "-DDARWIN64"
+    - "-DDARWIN"
+    - "-DBUILD_DARWIN"
+    - "-I"
+    - "/Users/sunneva/xnuports-root/devel/DarwinSrc/CoreOS/Staging/Libxpc/src/libsystem/xpc/include"
+    - "-I"
+    - "/Users/sunneva/xnuports-root/devel/DarwinSrc/CoreOS/Staging/Libxpc/include"
+  Remove:
+    - "-Werror"
