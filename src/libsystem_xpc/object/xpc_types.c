@@ -58,6 +58,8 @@ const struct _xpc_type_s _xpc_type_endpoint   = { "endpoint",   XPC_KIND_ENDPOIN
 const struct _xpc_type_s _xpc_type_activity   = { "activity",   XPC_KIND_ACTIVITY };
 const struct _xpc_type_s _xpc_type_session    = { "session",    XPC_KIND_SESSION };
 const struct _xpc_type_s _xpc_type_listener   = { "listener",   XPC_KIND_LISTENER };
+const struct _xpc_type_s _xpc_type_fd         = { "fd",         XPC_KIND_FD };
+const struct _xpc_type_s _xpc_type_rich_error = { "rich_error", XPC_KIND_RICH_ERROR };
 
 xpc_kind_t
 xpc_kind_from_type(xpc_type_t t)

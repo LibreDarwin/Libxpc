@@ -77,3 +77,16 @@ xpc_string_get_length(xpc_object_t obj)
     if (!XPC_OBJECT_CHECK(obj, &_xpc_type_string)) return 0;
     return XPC_CAST(xpc_string_t, obj)->length;
 }
+
+xpc_object_t
+xpc_string_create_no_copy(const char *value, size_t length, xpc_finalizer_t finalizer)
+{
+    (void)finalizer;
+    if (!value) return NULL;
+    xpc_string_t *s = XPC_CAST(xpc_string_t,
+        xpc_object_alloc(&_xpc_type_string, sizeof(xpc_string_t)));
+    if (!s) return NULL;
+    s->data = (char *)value;
+    s->length = length == (size_t)-1 ? strlen(value) : length;
+    return (xpc_object_t)s;
+}

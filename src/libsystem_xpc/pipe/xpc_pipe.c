@@ -320,6 +320,25 @@ static int send(xpc_pipe_t p, xpc_object_t object, xpc_object_t *reply,
 int xpc_pipe_simpleroutine(xpc_pipe_t p, xpc_object_t o, xpc_object_t *r) {
     return send(p, o, r, XPC_PIPE_ID_SIMPLEROUTINE);
 }
+int __xpc_pipe_interface_routine(int a, int b, int c, int d)
+{
+    (void)a;
+    (void)b;
+    (void)c;
+    (void)d;
+    return 0;
+}
+
+int
+_xpc_pipe_interface_routine(int a, int b, int c, int d)
+{
+    (void)a;
+    (void)b;
+    (void)c;
+    (void)d;
+    return 0;
+}
+
 int xpc_pipe_routine(xpc_pipe_t p, xpc_object_t o, xpc_object_t *r,
     uint32_t routine) {
     /* Real launchd wire id is XPC_PIPE_ID_ROUTINE | (routine & 0xffff):

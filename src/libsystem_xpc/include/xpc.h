@@ -78,6 +78,7 @@ typedef const struct _xpc_type_s *xpc_type_t;
  * @abstract Call block with an object.
  */
 typedef void (^xpc_handler_t)(xpc_object_t object);
+typedef void (*xpc_finalizer_t)(void *context);
 
 #pragma mark - XPC object lifecycle
 

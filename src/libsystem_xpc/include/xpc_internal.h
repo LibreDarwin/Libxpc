@@ -84,6 +84,7 @@ typedef enum xpc_kind {
     XPC_KIND_ACTIVITY,
     XPC_KIND_SESSION,
     XPC_KIND_LISTENER,
+    XPC_KIND_FD,
     XPC_KIND_RICH_ERROR,
     XPC_KIND_COUNT,
 } xpc_kind_t;
@@ -216,6 +217,11 @@ extern const struct _xpc_type_s _xpc_type_endpoint;
 extern const struct _xpc_type_s _xpc_type_activity;
 extern const struct _xpc_type_s _xpc_type_session;
 extern const struct _xpc_type_s _xpc_type_listener;
+extern const struct _xpc_type_s _xpc_type_fd;
+extern const struct _xpc_type_s _xpc_type_rich_error;
+
+extern xpc_object_t _xpc_bool_true;
+extern xpc_object_t _xpc_bool_false;
 
 xpc_kind_t xpc_kind_from_type(xpc_type_t t);
 

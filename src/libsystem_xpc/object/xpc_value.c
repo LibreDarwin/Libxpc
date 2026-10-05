@@ -57,6 +57,18 @@ xpc_bool_create(bool value)
     return (xpc_object_t)o;
 }
 
+const struct _xpc_scalar_s _xpc_bool_true_val = {
+    .hdr = XPC_OBJECT_HEADER(&_xpc_type_bool),
+    .v = { .bval = true }
+};
+const struct _xpc_scalar_s _xpc_bool_false_val = {
+    .hdr = XPC_OBJECT_HEADER(&_xpc_type_bool),
+    .v = { .bval = false }
+};
+
+xpc_object_t _xpc_bool_true = (xpc_object_t)&_xpc_bool_true_val;
+xpc_object_t _xpc_bool_false = (xpc_object_t)&_xpc_bool_false_val;
+
 bool
 xpc_bool_get_value(xpc_object_t obj)
 {
@@ -134,4 +146,28 @@ xpc_date_get_value(xpc_object_t obj)
 {
     if (!XPC_OBJECT_CHECK(obj, &_xpc_type_date)) return 0;
     return XPC_CAST(xpc_scalar_t, obj)->v.date_ns;
+}
+
+xpc_object_t
+xpc_create_from_plist(const void *data, size_t length)
+{
+    (void)data;
+    (void)length;
+    return NULL;
+}
+
+xpc_object_t
+xpc_create_from_plist_with_string_cache(const void *data, size_t length, xpc_object_t cache)
+{
+    (void)data;
+    (void)length;
+    (void)cache;
+    return NULL;
+}
+
+xpc_object_t
+xpc_get_service_identifier_for_token(audit_token_t *token)
+{
+    (void)token;
+    return NULL;
 }

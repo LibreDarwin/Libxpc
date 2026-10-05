@@ -185,3 +185,33 @@ xpc_dictionary_apply_f(xpc_object_t dict, xpc_dictionary_applier_f_t applier,
         applier(d->keys[i], d->values[i], ctx);
     }
 }
+
+xpc_object_t
+xpc_dictionary_create_empty(void)
+{
+    return xpc_dictionary_create(NULL, NULL, 0);
+}
+
+xpc_object_t
+xpc_dictionary_get_array(xpc_object_t xdict, const char *key)
+{
+    xpc_object_t v = xpc_dictionary_get_value(xdict, key);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_array)) return NULL;
+    return v;
+}
+
+xpc_object_t
+xpc_dictionary_get_dictionary(xpc_object_t xdict, const char *key)
+{
+    xpc_object_t v = xpc_dictionary_get_value(xdict, key);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_dictionary)) return NULL;
+    return v;
+}
+
+mach_port_t
+xpc_dictionary_copy_mach_send(xpc_object_t xdict, const char *key)
+{
+    (void)xdict;
+    (void)key;
+    return MACH_PORT_NULL;
+}

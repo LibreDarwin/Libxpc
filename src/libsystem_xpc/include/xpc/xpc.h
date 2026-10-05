@@ -85,6 +85,7 @@ typedef const struct _xpc_type_s *xpc_type_t;
 XPC_DECL(xpc_connection);
 XPC_DECL(xpc_endpoint);
 XPC_DECL(xpc_rich_error);
+XPC_DECL(xpc_fd);
 XPC_DECL(xpc_activity);
 XPC_DECL(xpc_session);
 XPC_DECL(xpc_listener);
@@ -466,6 +467,10 @@ XPC_EXPORT XPC_NONNULL1 XPC_NONNULL3
 void
 xpc_array_set_string(xpc_object_t xarray, size_t index, const char *string);
 
+XPC_EXPORT
+void
+xpc_array_set_fd(xpc_object_t xarray, size_t index, int fd);
+
 XPC_EXPORT XPC_NONNULL1
 void
 xpc_array_set_data(xpc_object_t xarray, size_t index, const void *_XPC_NULLABLE bytes, size_t length);
@@ -565,6 +570,7 @@ XPC_EXPORT XPC_NONNULL1 XPC_NONNULL2
 xpc_object_t
 xpc_dictionary_get_dictionary(xpc_object_t xdict, const char *key);
 
+
 XPC_EXPORT XPC_NONNULL1 XPC_NONNULL2
 void
 xpc_dictionary_set_bool(xpc_object_t xdict, const char *key, bool value);
@@ -637,6 +643,34 @@ void
 xpc_main(xpc_connection_handler_t handler);
 
 #pragma mark Transactions
+
+XPC_EXPORT
+mach_port_t
+xpc_dictionary_copy_mach_send(xpc_object_t xdict, const char *key);
+
+XPC_EXPORT
+xpc_object_t
+xpc_dictionary_create_empty(void);
+
+XPC_EXPORT
+xpc_object_t
+xpc_array_create_empty(void);
+
+XPC_EXPORT
+xpc_object_t
+xpc_string_create_no_copy(const char *value, size_t length, xpc_finalizer_t finalizer);
+
+XPC_EXPORT
+xpc_object_t
+xpc_create_from_plist(const void *data, size_t length);
+
+XPC_EXPORT
+xpc_object_t
+xpc_create_from_plist_with_string_cache(const void *data, size_t length, xpc_object_t cache);
+
+XPC_EXPORT
+xpc_object_t
+xpc_get_service_identifier_for_token(audit_token_t *token);
 
 XPC_EXPORT
 void

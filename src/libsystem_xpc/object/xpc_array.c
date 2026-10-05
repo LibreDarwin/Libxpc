@@ -131,3 +131,50 @@ xpc_array_apply(xpc_object_t array,
     }
     return true;
 }
+
+xpc_object_t
+xpc_array_create_empty(void)
+{
+    return xpc_array_create(NULL, 0);
+}
+
+const char *
+xpc_array_get_string(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t v = xpc_array_get_value(xarray, index);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_string)) return NULL;
+    return ((xpc_string_t *)v)->data;
+}
+
+void
+xpc_array_set_int64(xpc_object_t xarray, size_t index, int64_t value)
+{
+    xpc_object_t obj = xpc_int64_create(value);
+    if (index == XPC_ARRAY_APPEND) {
+        xpc_array_append_value(xarray, obj);
+    } else {
+        xpc_array_set_value(xarray, index, obj);
+    }
+    xpc_release(obj);
+}
+
+void
+xpc_array_set_string(xpc_object_t xarray, size_t index, const char *string)
+{
+    xpc_object_t obj = xpc_string_create(string);
+    if (index == XPC_ARRAY_APPEND) {
+        xpc_array_append_value(xarray, obj);
+    } else {
+        xpc_array_set_value(xarray, index, obj);
+    }
+    xpc_release(obj);
+}
+
+void
+xpc_array_set_fd(xpc_object_t xarray, size_t index, int fd)
+{
+    (void)xarray;
+    (void)index;
+    (void)fd;
+    /* Placeholder: our wire layer does not transport FDs in this form. */
+}
