@@ -10,7 +10,7 @@ build/
 *.dSYM/
 
 # External reference material — never commit
-refs/
+local/
 
 # Stray debug artifacts
 err.txt
