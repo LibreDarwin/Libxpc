@@ -15,18 +15,14 @@ local/
 # Stray debug artifacts
 err.txt
 
-# Compiled probe/decoder binaries (sources live in tree)
+# Compiled probe/decoder binaries; their sources sit beside them as
+# probe<N>.c, maptest.c, wiredecode.c.  Patterns, not a list: new probes
+# are covered the moment they are added.
 tools/probe/probe
-tools/probe/probe2
-tools/probe/probe3
-tools/probe/probe4
-tools/probe/probe4b
-tools/probe/probe6
-tools/probe/probe7
-tools/probe/probe8
-tools/probe/probe9
-tools/wiredecode/wiredecode
-build/
-tools/probe/probe9
-tools/probe/probe10
+tools/probe/probe[0-9]*
 tools/probe/maptest
+tools/wiredecode/wiredecode
+
+# ...but the numbered probes are sources named probe<N>.c, which the
+# pattern above would otherwise swallow along with the binaries.
+!tools/probe/probe*.c
