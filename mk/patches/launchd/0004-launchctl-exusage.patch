@@ -1,0 +1,168 @@
+--- a/support/launchctl.c
++++ b/launchctl.c
+@@ -556,7 +556,7 @@
+ 
+ 	if (argc != 2) {
+ 		launchctl_log(LOG_ERR, "%s usage: unsetenv <key>", getprogname());
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
+@@ -584,7 +584,7 @@
+ 
+ 	if (argc != 3) {
+ 		launchctl_log(LOG_ERR, "%s usage: setenv <key> <value>", getprogname());
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
+@@ -643,7 +643,7 @@
+ 		}
+ 	} else if (argc != 2) {
+ 		launchctl_log(LOG_ERR, "%s usage: getenv <key>", getprogname());
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	k = argv[1];
+@@ -2088,6 +2088,21 @@
+ 
+ 	launchctl_log(level, "usage: %s <subcommand>", getprogname());
+ 
++	if (argc > 1) {
++		bool found = false;
++
++		for (i = 0; i < (sizeof cmds / sizeof cmds[0]); i++) {
++			if (!strcmp(cmds[i].name, argv[1])) {
++				found = true;
++				break;
++			}
++		}
++		if (!found) {
++			launchctl_log(LOG_ERR, "usage: %s help <subcommand>", getprogname());
++			return EX_USAGE;
++		}
++	}
++
+ 	for (i = 0; i < (sizeof cmds / sizeof cmds[0]); i++) {
+ 		l = strlen(cmds[i].name);
+ 		if (l > cmdwidth) {
+@@ -2556,7 +2571,7 @@
+ 
+ 	if (!session) {
+ 		launchctl_log(LOG_ERR, "usage: %s bootstrap [-s] -S <session-type>", getprogname());
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	if (strcasecmp(session, "System") == 0) {
+@@ -2702,7 +2717,7 @@
+ 
+ 	if (badopts) {
+ 		launchctl_log(LOG_ERR, "usage: %s load [-wF] [-D <user|local|network|system|all>] paths...", getprogname());
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	int dbfd = -1;
+@@ -2882,7 +2897,7 @@
+ 
+ 	if (argc != 2) {
+ 		launchctl_log(LOG_ERR, "usage: %s %s <job label>", getprogname(), argv[0]);
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
+@@ -3212,7 +3227,7 @@
+ 
+ 	if (argc < 2) {
+ 		launchctl_log(LOG_ERR, "usage: launchctl attach <target>");
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 	request = xpc_dictionary_create(NULL, NULL, 0);
+ 	if (request == NULL) {
+@@ -3269,7 +3284,7 @@
+ 	char *label = NULL;	
+ 	if (argc > 3) {
+ 		launchctl_log(LOG_ERR, "usage: %s list [-x] [label]", getprogname());
+-		return 1;
++		return EX_USAGE;
+ 	} else if (argc >= 2) {
+ 		plist_output = (strncmp(argv[1], "-x", sizeof("-x")) == 0);
+ 		label = plist_output ? argv[2] : argv[1];
+@@ -3344,7 +3359,7 @@
+ 
+ 	if (argc != 1) {
+ 		launchctl_log(LOG_ERR, "usage: %s %s", getprogname(), argv[0]);
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	if (!strcmp(argv[0], "shutdown")) {
+@@ -3443,7 +3458,7 @@
+ 
+ 	if (badargs) {
+ 		launchctl_log(LOG_ERR, "usage: %s [[mask loglevels...] | [only loglevels...] [level loglevel]]", getprogname());
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	inval = m;
+@@ -3561,7 +3576,7 @@
+ 		for (i = 0; i < limlookupcnt; i++)
+ 			launchctl_log(LOG_ERR, "%s %s", limlookup[i].name, (i + 1) == limlookupcnt ? "" : "| ");
+ 		launchctl_log(LOG_ERR, "[both | soft hard]]");
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	msg = launch_data_new_string(LAUNCH_KEY_GETRESOURCELIMITS);
+@@ -3656,7 +3671,7 @@
+ 
+ 	if (argc > 2 || badargs) {
+ 		launchctl_log(LOG_ERR, "usage: %s %s <mask>", getprogname(), argv[0]);
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	inval = m;
+@@ -3723,7 +3738,7 @@
+ 			break;
+ 		default:
+ 			launchctl_log(LOG_ERR, "usage: %s submit ...", getprogname());
+-			return 1;
++			return EX_USAGE;
+ 		}
+ 	}
+ 	argc -= optind;
+@@ -3772,7 +3787,7 @@
+ 
+ 	if (badargs) {
+ 		launchctl_log(LOG_ERR, "usage: %s %s self | children", getprogname(), argv[0]);
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	if (!strcmp(argv[1], "self")) {
+@@ -3880,7 +3895,7 @@
+ 
+ 	if (argc < 3) {
+ 		launchctl_log(LOG_ERR, "usage: %s bsexec <PID> prog...", getprogname());
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	bport = str2bsport(argv[1]);
+@@ -4109,7 +4124,7 @@
+ 		}
+ 	} else {
+ 		launchctl_log(LOG_ERR, "Usage: launchctl asuser <UID> <command> [arguments...].");
+-		return 1;
++		return EX_USAGE;
+ 	}
+ 
+ 	if (geteuid() != 0) {
