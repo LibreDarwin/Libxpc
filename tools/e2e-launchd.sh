@@ -15,8 +15,11 @@ cd "$(dirname "$0")/.."
 
 ROOT="$(pwd)"
 RELEASE="$ROOT/build/release"
-STUB="$RELEASE/launchd_stub"
-LAUNCHCTL="$RELEASE/launchctl"
+# The stub and the clean-room launchctl are test-only; the shipped launchctl in
+# build/release is Apple's and speaks to a real launchd, not to this stub.
+TESTDIR="$ROOT/build/test"
+STUB="$TESTDIR/launchd_stub"
+LAUNCHCTL="$TESTDIR/launchctl"
 
 failures=0
 passes=0

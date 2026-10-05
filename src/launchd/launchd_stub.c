@@ -859,7 +859,7 @@ usage(void)
 int
 main(int argc, char **argv)
 {
-    const char *launchctl_path = "build/release/launchctl";
+    const char *launchctl_path = "build/test/launchctl";
     mach_port_t server_port = MACH_PORT_NULL;
     kern_return_t kr;
     int i, rc;

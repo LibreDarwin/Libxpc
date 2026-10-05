@@ -3,12 +3,15 @@
 # The tree is shaped like Apple's libSystem family:
 #
 #   src/libsystem_xpc/  the xpc component -> libsystem_xpc.dylib (own Makefile)
-#   src/launchctl/   launchctl (system_cmds territory, NOT libSystem)
-#   src/launchd/     launchd_stub test double (launchd territory, NOT libSystem)
-#                     plus the XPC.framework umbrella payload
-#                     (module.modulemap, Info.plist)
 #   include/         SPI declarations no SDK ships, for the Apple sources
 #   mk/patches/      numbered patch series applied to copies of those sources
+#   src/launchctl/   clean-room launchctl, kept as an e2e test client only
+#   src/launchd/     launchd_stub test double, plus the XPC.framework umbrella
+#                     payload (module.modulemap, Info.plist)
+#
+# launchctl and launchd are Apple's own sources: launchd comes from the
+# launchd tree, and launchctl is that same tree's support/launchctl.c (patched
+# by 0001/0002).  Neither is reimplemented here.
 #
 # The apple-oss sources themselves are not vendored here; they live in the
 # surrounding CoreOS tree (DarwinSrc/CoreOS/Sources/launchd, .../libinfo)
@@ -22,9 +25,13 @@ ECHO	= echo
 BUILD	 := ${.CURDIR}/build
 OBJDIR	 := ${BUILD}/obj
 RELEASE	 := ${BUILD}/release
+TESTDIR	 := ${BUILD}/test
 LIBS	 := ${RELEASE}/libsystem_xpc.dylib
+# launchctl and launchd are Apple's own sources; the stub and the clean-room
+# launchctl are test-only and stay out of the release tree.
 LAUNCHCTL:= ${RELEASE}/launchctl
-LAUNCHD	 := ${RELEASE}/launchd_stub
+LAUNCHD	 := ${TESTDIR}/launchd_stub
+TESTCTL	:= ${TESTDIR}/launchctl
 FRAMEWORK:= ${RELEASE}/XPC.framework
 
 SDK_PATH!=	xcrun --show-sdk-path 2>/dev/null || true
@@ -145,6 +152,22 @@ LIBINFO_UPSTREAM:=	${_d}
 .endif
 .endfor
 .endif
+
+# Apple's launchctl pulls in bsm/auditd_lib.h and calls audit_quick_start().
+# OpenBSM is apple-oss, so it is located the same way launchd and Libinfo are;
+# it is linked into launchctl rather than shipped as a separate library.
+.if !defined(OPENBSM_UPSTREAM)
+.for _d in ${.CURDIR}/../../Sources/OpenBSM ${.CURDIR}/src/apple/OpenBSM
+.if !defined(OPENBSM_UPSTREAM) && exists(${_d}/openbsm/libbsm/bsm_io.c)
+OPENBSM_UPSTREAM:=	${_d}/openbsm
+.endif
+.endfor
+.endif
+
+# IOKitUser carries bootfiles.h (kext.subproj), which launchctl includes for
+# the boot-* and safe-boot paths.
+IOKITUSER_UPSTREAM?= ${.CURDIR}/../../Sources/IOKitUser
+
 LAUNCHD_REAL	:= ${RELEASE}/launchd
 LAUNCHD_SRCS	:= ${LAUNCHD_SRC}/src/core.c ${LAUNCHD_SRC}/src/ipc.c \
 		   ${LAUNCHD_SRC}/src/kill2.c ${LAUNCHD_SRC}/src/ktrace.c \
@@ -189,12 +212,91 @@ ${LIBS}: ${LIBLAUNCH_OBJS}
 ${RELEASE}:
 	@mkdir -p $@
 
-${LAUNCHCTL}: src/launchctl/launchctl.c src/libsystem_xpc/include/xpc.h ${LIBS}
+# Apple's launchctl: support/launchctl.c from the patched launchd tree.
+#
+# Three things it wants that no SDK provides, all supplied here:
+#   CoreFoundation/CFPriv.h   our internal SDK ships only public CF headers, so
+#                             CF-Root's private ones are symlinked into a shim.
+#   systemstats/systemstats.h  closed-source framework; mk/shims declares the
+#                             single entry point launchctl calls.
+#   SO_EXECPATH                lives in sys/socket_private.h, which nothing
+#                             includes, so that header is force-included.
+#
+# audit_quick_start() and its libbsm backing come from OpenBSM, apple-oss.
+APPLE_LAUNCHCTL:= ${LAUNCHD_SRC}/support/launchctl.c
+SHIMDIR		:= ${BUILD}/include-shim
+SHIMS		:= ${.CURDIR}/mk/shims
+CF_PRIVHEADERS	:= ${.CURDIR}/../../Sources/CF-Root/CoreFoundation.framework/Versions/A/PrivateHeaders
+BSM_SRCS!=	ls ${OPENBSM_UPSTREAM}/libbsm/*.c 2>/dev/null || true
+BSM_OBJS	:= ${BSM_SRCS:T:R:S,^,${OBJDIR}/bsm/,:S,$,.o,}
+BSM_CFLAGS	:= -isysroot ${SDK_PATH} -fblocks -g -O0 \
+		   -I${OPENBSM_UPSTREAM} -I${OPENBSM_UPSTREAM}/libbsm \
+		   -I${OPENBSM_UPSTREAM}/libauditd \
+		   -idirafter ${INTERNAL_SDK}/usr/include
+LAUNCHCTL_CFLAGS:= -std=gnu11 -fblocks -g -O0 -fvisibility=hidden \
+		   -isysroot ${SDK_PATH} -include sys/socket_private.h \
+		   -I${.CURDIR}/src/libsystem_xpc/include \
+		   -I${.CURDIR}/include \
+		   -I${LAUNCHD_SRC}/src -I${LAUNCHD_SRC}/liblaunch \
+		   -idirafter ${SHIMDIR} \
+		   -idirafter ${IOKITUSER_UPSTREAM}/kext.subproj \
+		   -idirafter ${OPENBSM_UPSTREAM} \
+		   -idirafter ${INTERNAL_SDK}/usr/include \
+		   -idirafter ${INTERNAL_SDK}/usr/local/include \
+		   -idirafter ${LIBINFO_UPSTREAM:UNDEFINED=${.CURDIR}/../../Sources/libinfo}/lookup.subproj \
+		   -D__MigTypeCheck=1 -Dmig_external=__private_extern__ \
+		   -D_DARWIN_USE_64_BIT_INODE=1 -D__DARWIN_NON_CANCELABLE=1 \
+		   -DXPC_BUILDING_LAUNCHD=1
+
+# CoreFoundation's private headers, under the framework-style path launchctl
+# includes them by.  Generated, not tracked: it points outside this repo.
+${SHIMDIR}/CoreFoundation:
+	@test -d "${CF_PRIVHEADERS}" || { \
+	    ${ECHO} "launchctl: no CoreFoundation private headers at ${CF_PRIVHEADERS}"; \
+	    exit 1; }
+	@mkdir -p ${SHIMDIR}
+	@ln -sfn ${CF_PRIVHEADERS} ${SHIMDIR}/CoreFoundation
+
+${SHIMDIR}/systemstats/systemstats.h: ${SHIMS}/systemstats/systemstats.h
+	@mkdir -p ${SHIMDIR}/systemstats
+	cp ${SHIMS}/systemstats/systemstats.h ${SHIMDIR}/systemstats/systemstats.h
+
+.for _s in ${BSM_SRCS}
+${OBJDIR}/bsm/${_s:T:R}.o: ${_s}
+	@mkdir -p ${.TARGET:H}
+	${CC} ${BSM_CFLAGS} -c ${_s} -o ${.TARGET}
+.endfor
+
+${OBJDIR}/auditd_lib.o: ${OPENBSM_UPSTREAM}/libauditd/auditd_lib.c
+	@mkdir -p ${.TARGET:H}
+	${CC} ${BSM_CFLAGS} -c ${OPENBSM_UPSTREAM}/libauditd/auditd_lib.c -o ${.TARGET}
+
+${OBJDIR}/systemstats_stub.o: ${SHIMS}/systemstats_stub.c
+	@mkdir -p ${.TARGET:H}
+	${CC} ${BSM_CFLAGS} -c ${SHIMS}/systemstats_stub.c -o ${.TARGET}
+
+${LAUNCHCTL}: ${APPLE_LAUNCHCTL} ${LIBS} ${SHIMDIR}/CoreFoundation \
+    ${SHIMDIR}/systemstats/systemstats.h ${BSM_OBJS} \
+    ${OBJDIR}/auditd_lib.o ${OBJDIR}/systemstats_stub.o
+	@mkdir -p ${.TARGET:H}
+	${CC} ${LAUNCHCTL_CFLAGS} ${APPLE_LAUNCHCTL} ${BSM_OBJS} \
+	    ${OBJDIR}/auditd_lib.o ${OBJDIR}/systemstats_stub.o \
+	    -L${RELEASE} -lsystem_xpc -Wl,-rpath,${RELEASE} \
+	    -framework CoreFoundation -framework IOKit \
+	    -Wl,-U,_readline -Wl,-U,__CFConstantStringClassReference \
+	    -Wl,-U,__kCFSystemVersionBuildVersionKey -o $@
+
+# Test-only, not shipped: the clean-room launchctl is the e2e harness's XPC
+# client, and launchd_stub is the in-process launchd it talks to.  Shipped
+# launchctl is Apple's, built above.
+${TESTCTL}: src/launchctl/launchctl.c src/libsystem_xpc/include/xpc.h ${LIBS}
+	@mkdir -p ${.TARGET:H}
 	${CC} ${CFLAGS} src/launchctl/launchctl.c -L${RELEASE} -lsystem_xpc \
 	    -Wl,-rpath,${RELEASE} -o $@
 
 ${LAUNCHD}: src/launchd/launchd_stub.c src/launchctl/launchctl.c \
-    src/libsystem_xpc/include/xpc.h ${LIBS}
+    src/libsystem_xpc/include/xpc.h ${LIBS} ${TESTCTL}
+	@mkdir -p ${.TARGET:H}
 	${CC} ${CFLAGS} -DXNUXPORTS_EMBED -c src/launchctl/launchctl.c \
 	    -o ${OBJDIR}/launchctl_embed.o
 	${CC} ${CFLAGS} src/launchd/launchd_stub.c ${OBJDIR}/launchctl_embed.o \
@@ -218,7 +320,7 @@ ${FRAMEWORK}: ${LIBS} ${RELEASE}
 
 release: ${FRAMEWORK}
 
-test: all
+test: all ${LAUNCHD} ${TESTCTL}
 	sh tools/e2e-launchd.sh
 
 clean:
