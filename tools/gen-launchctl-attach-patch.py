@@ -223,9 +223,18 @@ attach_cmd(int argc, char *const argv[])
 inserted = False
 for i, line in enumerate(lines):
     if not inserted and line.rstrip("\n") == "list_cmd(int argc, char *const argv[])":
+        # 0001 already moved the bare "int" return type back above list_cmd(),
+        # so this hunk must splice in above that "int" too -- otherwise the
+        # return type binds to attach_cmd() and list_cmd() goes typeless.
+        ret = ""
+        if out and out[-1].rstrip("\n") == "int":
+            ret = out.pop()
         if out and out[-1].strip() != "":
             out.append("\n")
         out.append(BLOCK)
+        out.append("\n")
+        if ret:
+            out.append(ret)
         inserted = True
     out.append(line)
 

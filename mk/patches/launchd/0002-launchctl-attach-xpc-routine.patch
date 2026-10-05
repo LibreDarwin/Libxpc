@@ -16,10 +16,17 @@
  	{ "setenv",			setenv_cmd,				"Set an environmental variable in launchd" },
  	{ "unsetenv",		unsetenv_cmd,			"Unset an environmental variable in launchd" },
  	{ "getenv",			getenv_and_export_cmd,	"Get an environmental variable from launchd" },
-@@ -3067,7 +3069,176 @@
- 	xpc_release(request);
- 	return error;
- }
+@@ -3058,14 +3060,184 @@
+ 		banner ? banner : "launchd", status ? status : "ok",
+ 		(long long)pid);
+ 	error = 0;
++out:
++	if (reply != NULL) {
++		xpc_release(reply);
++	}
++	xpc_release(request);
++	return error;
++}
 +
 +#define LAUNCHCTL_STATUS_SERVICE_TARGET_REQUIRED 10
 +
@@ -52,7 +59,7 @@
 +	char *service = NULL;
 +	size_t index = 0;
 +	int error = 0;
- 
++
 +	if (service_name) {
 +		*service_name = NULL;
 +	}
@@ -135,7 +142,7 @@
 +		service = NULL;
 +	}
 +
-+out:
+ out:
 +	free(service);
 +	free(target_copy);
 +	return error;
@@ -182,14 +189,15 @@
 +	} else {
 +		printf("Attached to %s\n", service_name);
 +	}
-+	if (reply != NULL) {
-+		xpc_release(reply);
-+	}
+ 	if (reply != NULL) {
+ 		xpc_release(reply);
+ 	}
 +	free(service_name);
-+	xpc_release(request);
-+	return error;
-+}
+ 	xpc_release(request);
+ 	return error;
+ }
+ 
 +
+ int
  list_cmd(int argc, char *const argv[])
  {
- 	if (_launchctl_is_managed) {

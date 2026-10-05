@@ -144,12 +144,21 @@ out:
 done = False
 for i, line in enumerate(lines):
     if line.rstrip("\n") == "list_cmd(int argc, char *const argv[])":
+        # Apple's file splits the return type onto its own line, so the text
+        # just above "list_cmd(...)" is a bare "int".  The new definition has
+        # to be spliced in ABOVE that "int"; inserting here would orphan the
+        # return type, binding it to status_cmd() and leaving list_cmd()
+        # implicitly int.
+        ret = ""
+        if out and out[-1].rstrip("\n") == "int":
+            ret = out.pop()
         # ensure a blank line separates the new function from the previous one
         if out and out[-1].strip() != "":
             out.append("\n")
         out.append(FUNC)
-        if lines[i - 1].strip() != "":
-            out.append("\n")
+        out.append("\n")
+        if ret:
+            out.append(ret)
         done = True
     out.append(line)
 

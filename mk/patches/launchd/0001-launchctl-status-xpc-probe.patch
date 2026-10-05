@@ -25,10 +25,12 @@
  	{ "setenv",			setenv_cmd,				"Set an environmental variable in launchd" },
  	{ "unsetenv",		unsetenv_cmd,			"Unset an environmental variable in launchd" },
  	{ "getenv",			getenv_and_export_cmd,	"Get an environmental variable from launchd" },
-@@ -2987,6 +2991,83 @@
- }
- 
- int
+@@ -2983,7 +2987,83 @@
+ 	default:
+ 		fprintf(stdout, "???;\n");
+ 		break;
++	}
++}
 +
 +static int
 +status_cmd(int argc, char *const argv[])
@@ -73,7 +75,7 @@
 +		mach_port_t bootstrap = MACH_PORT_NULL;
 +		task_get_bootstrap_port(mach_task_self(), &bootstrap);
 +		xpc_dictionary_set_mach_send(request, "domain-port", bootstrap);
-+	}
+ 	}
 +
 +	error = xpc_pipe_routine(state->xpc_bootstrap_pipe, request, &reply,
 +		XPC_ROUTINE_SERVICE_STATUS);
@@ -104,8 +106,6 @@
 +	}
 +	xpc_release(request);
 +	return error;
-+}
-+
- list_cmd(int argc, char *const argv[])
- {
- 	if (_launchctl_is_managed) {
+ }
+ 
+ int
