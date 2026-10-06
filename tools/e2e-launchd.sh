@@ -211,5 +211,16 @@ check "kill missing" 113 \
     user/$(id -u)/com.xnuports.stub.nope
 
 # --- summary -----------------------------------------------------------
+
+# --- shipped launchctl (build/release) smoke tests -----------------------
+if [ -x "$RELEASE/launchctl" ]; then
+    check "shipped help" 0 "$RELEASE/launchctl" help >/dev/null 2>&1
+    check "shipped version" 0 "$RELEASE/launchctl" version >/dev/null 2>&1
+    check "shipped setenv noargs" 64 "$RELEASE/launchctl" setenv >/dev/null 2>&1
+    check "shipped print usage" 64 "$RELEASE/launchctl" print >/dev/null 2>&1
+    check "shipped kickstart usage" 64 "$RELEASE/launchctl" kickstart >/dev/null 2>&1
+    check "shipped error 0" 0 "$RELEASE/launchctl" error 0 >/dev/null 2>&1
+fi
+
 echo "launchd e2e: $passes passed, $failures failed"
 [ "$failures" -eq 0 ]
