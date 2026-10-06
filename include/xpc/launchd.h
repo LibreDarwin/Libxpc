@@ -120,6 +120,29 @@ kern_return_t xpc_call_wakeup(mach_port_t rport, int error);
 struct _launch_data;
 xpc_object_t ld2xpc(struct _launch_data *data);
 
+#pragma mark - libxpc receive/reply SPI (launchd runtime)
+
+/*
+ * The receive loop and reply plumbing launchd's runtime calls into.
+ * xpc_pipe_try_receive() blocks on a port set, deserializes XPC messages
+ * into the request dict (reply capability stamped on it), and hands
+ * non-XPC MIG traffic to mig_handler whose reply is sent back.  The mig
+ * call signature matches Apple's xpc_pipe_mig_call_t (private.h).
+ */
+typedef boolean_t (*xpc_pipe_mig_call_t)(mach_msg_header_t *request,
+	mach_msg_header_t *reply);
+
+kern_return_t xpc_pipe_try_receive(mach_port_t *port, xpc_object_t *request,
+	mach_port_t *out_port, xpc_pipe_mig_call_t mig_handler,
+	mach_msg_size_t move_size, uint64_t flags);
+
+kern_return_t xpc_pipe_routine_reply(xpc_object_t reply);
+
+/* Receive-right dictionary value ("port" key of check-in replies). */
+xpc_object_t xpc_mach_recv_create(mach_port_t value);
+void xpc_dictionary_set_mach_recv(xpc_object_t xdict, const char *key,
+	mach_port_t value);
+
 __END_DECLS
 
 #endif /* __XPC_LAUNCHD_H__ */

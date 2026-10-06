@@ -196,6 +196,22 @@ int xpc_service_routine(uint64_t routine, xpc_object_t request,
 int xpc_pipe_routine_with_flags(xpc_pipe_t pipe, xpc_object_t request,
     xpc_object_t *reply, uint64_t flags, uint32_t routine);
 
+/*
+ * Blocking receive loop for a Mach port set, launchd/launchctl-style.
+ * Receives one message from *port_set_inout: XPC messages are deserialized
+ * into *request_out (with the reply capability stamped on the dict) and
+ * *out_port receives the port the message arrived on; everything else is
+ * offered to mig_handler, whose filled reply is sent back over the
+ * request's reply right.  See xpc_internal.h for the full contract.
+ * Returns 0 when handled, else a mach/errno error code.
+ */
+int xpc_pipe_try_receive(mach_port_t *port_set_inout, xpc_object_t *request_out,
+    mach_port_t *out_port, xpc_mig_demux_fn mig_handler,
+    mach_msg_size_t msg_size, uint64_t flags);
+
+/* Send a reply-mode dictionary (see xpc_dictionary_create_reply). */
+int xpc_pipe_routine_reply(xpc_object_t reply);
+
 /* Human-readable description of a routine error code. */
 const char *xpc_strerror(int error);
 

@@ -317,19 +317,112 @@ xpc_dictionary_create_connection(xpc_object_t dict, const char *key)
     return xpc_connection_create_from_endpoint(v);
 }
 
+#pragma mark - Reply context (xpc_dictionary_create_reply / send_reply)
+
+/*
+ * Reply capability: a dictionary that deserialized a received request
+ * carries the message's reply right (and the disposition that describes
+ * it).  xpc_dictionary_create_reply() mints a fresh dictionary in the
+ * "reply" state that owns that capability; sending consumes it.  Modeled
+ * on Apple's mach-reply machinery (msgh_local_port arrive → reply goes
+ * back on the same port), but the reply context is envelope metadata, not
+ * dict content, so it is never serialized.
+ */
+
+void
+xpc_dictionary_attach_reply_context(xpc_object_t dict, mach_port_t reply_port,
+    uint8_t reply_disposition)
+{
+    if (!XPC_OBJECT_CHECK(dict, &_xpc_type_dictionary)) return;
+    xpc_dictionary_t *d = XPC_CAST(xpc_dictionary_t, dict);
+    d->msg_mode = 1;
+    d->reply_port = reply_port;
+    d->reply_disposition = xpc_reply_move_disposition(reply_disposition);
+}
+
+/* The received message's right kind → the disposition that moves it back:
+ * send-once rights must go out as MOVE_SEND_ONCE, send rights as
+ * MOVE_SEND. */
+uint8_t
+xpc_reply_move_disposition(uint8_t local_bit)
+{
+    switch (local_bit & 0x1f) {
+    case MACH_MSG_TYPE_MOVE_SEND_ONCE:
+    case MACH_MSG_TYPE_MAKE_SEND_ONCE:
+        return MACH_MSG_TYPE_MOVE_SEND_ONCE;
+    default:
+        return MACH_MSG_TYPE_MOVE_SEND;
+    }
+}
+
 xpc_object_t
 xpc_dictionary_create_reply(xpc_object_t original)
 {
     /* Apple mints a reply only from a dictionary that arrived carrying a
-     * reply context -- a message a connection event handler received with a
-     * reply port attached -- and consumes that context so the call succeeds
-     * at most once.  This library has no such receive path yet: every
-     * dictionary it can produce is locally created or a request/reply read
-     * back off the bootstrap pipe, none of which carry a reply context.  So
-     * NULL is the exact answer for every object we can hand out today, and
-     * stays correct for all of them whenever the receive path lands. */
+     * reply context -- a message received with a reply port attached -- and
+     * consumes that context so the call succeeds at most once. */
     if (!XPC_OBJECT_CHECK(original, &_xpc_type_dictionary)) return NULL;
-    return NULL;
+    xpc_dictionary_t *o = XPC_CAST(xpc_dictionary_t, original);
+    if (o->msg_mode != 1 || !MACH_PORT_VALID(o->reply_port)) return NULL;
+
+    xpc_object_t rp = xpc_dictionary_create(NULL, NULL, 0);
+    if (!rp) return NULL;
+    xpc_dictionary_t *r = XPC_CAST(xpc_dictionary_t, rp);
+    r->msg_mode = 2;
+    r->reply_port = o->reply_port;
+    r->reply_disposition = o->reply_disposition;
+    /* Consumed: only one reply may be minted from *original. */
+    o->msg_mode = 0;
+    o->reply_port = MACH_PORT_NULL;
+    return rp;
+}
+
+bool
+xpc_dictionary_expects_reply(xpc_object_t xdict)
+{
+    if (!XPC_OBJECT_CHECK(xdict, &_xpc_type_dictionary)) return false;
+    xpc_dictionary_t *d = XPC_CAST(xpc_dictionary_t, xdict);
+    return d->msg_mode != 0 && MACH_PORT_VALID(d->reply_port);
+}
+
+void
+xpc_dictionary_send_reply(xpc_object_t reply)
+{
+    /* Apple's __xpc_dictionary_send_reply is destructive and crashy on
+     * misuse; ours is a soft no-op when the dictionary does not carry a
+     * usable reply context. */
+    (void)xpc_reply_send(reply);
+}
+
+xpc_object_t
+xpc_dictionary_handoff_reply(xpc_object_t reply)
+{
+    if (!XPC_OBJECT_CHECK(reply, &_xpc_type_dictionary)) return NULL;
+    xpc_dictionary_t *d = XPC_CAST(xpc_dictionary_t, reply);
+    if (d->msg_mode != 2 || !MACH_PORT_VALID(d->reply_port)) return NULL;
+
+    xpc_object_t h = xpc_dictionary_create(NULL, NULL, 0);
+    if (!h) return NULL;
+    xpc_dictionary_t *hh = XPC_CAST(xpc_dictionary_t, h);
+    hh->msg_mode = 2;
+    hh->reply_port = d->reply_port;
+    hh->reply_disposition = d->reply_disposition;
+    /* The capability moves; the source keeps none to hand again. */
+    d->msg_mode = 0;
+    d->reply_port = MACH_PORT_NULL;
+    return h;
+}
+
+xpc_object_t
+xpc_dictionary_handoff_reply_f(xpc_object_t reply,
+    void (*finalizer)(void *context), void *context)
+{
+    xpc_object_t h = xpc_dictionary_handoff_reply(reply);
+    if (!h) return NULL;
+    xpc_dictionary_t *hh = XPC_CAST(xpc_dictionary_t, h);
+    hh->reply_finalizer = finalizer;
+    hh->reply_finalizer_ctx = context;
+    return h;
 }
 
 xpc_object_t

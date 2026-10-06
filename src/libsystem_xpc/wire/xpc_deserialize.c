@@ -99,6 +99,14 @@ static xpc_object_t read_value(xpc_deser_t *d) {
         if (!d->ports || idx >= d->nports) return NULL;
         return xpc_mach_send_create_owned(d->ports[idx]);
     }
+    case XPC_WIRE_MACH_RECV: {
+        /* Receive right: MOVE_RECEIVE transferred a fresh right for us,
+         * referenced by the tag's low byte.  The value owns it and
+         * destroys it on release unless it is sent onward. */
+        uint32_t idx = tag & 0xff;
+        if (!d->ports || idx >= d->nports) return NULL;
+        return xpc_mach_recv_create_owned(d->ports[idx]);
+    }
     case XPC_WIRE_SHMEM: {
         /* Shared-memory value: same slot semantics as mach-send, different
          * wire kind (0xc000 — memory entry port).  The real serializer

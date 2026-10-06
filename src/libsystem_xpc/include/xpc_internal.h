@@ -86,6 +86,7 @@ typedef enum xpc_kind {
     XPC_KIND_LISTENER,
     XPC_KIND_FD,
     XPC_KIND_RICH_ERROR,
+    XPC_KIND_MACH_RECV,
     XPC_KIND_COUNT,
 } xpc_kind_t;
 
@@ -152,6 +153,12 @@ typedef struct _xpc_mach_send_s {
                              * (rights received from the wire) */
 } xpc_mach_send_t;
 
+typedef struct _xpc_mach_recv_s {
+    struct _xpc_object_s hdr;
+    mach_port_t port;       /* receive right; NULL once consumed */
+    bool dispose;           /* true: release destroys an unconsumed right */
+} xpc_mach_recv_t;
+
 typedef struct _xpc_shmem_s {
     struct _xpc_object_s hdr;
     mach_port_t port;       /* memory-entry send right */
@@ -178,6 +185,21 @@ typedef struct _xpc_dictionary_s {
     size_t capacity;
     audit_token_t audit_token;  /* sender token, set on receipt (§xpc_routines) */
     bool has_audit_token;
+    uint8_t msg_mode;           /* reply context: 0 none, 1 received request,
+                                 * 2 reply (the state that lets
+                                 * xpc_dictionary_create_reply()/send_reply()
+                                 * work).  Not serialized — it is envelope
+                                 * context, not dict content. */
+    mach_port_t reply_port;     /* reply capability: the send(-once) right a
+                                 * request arrived on.  Consumed (moved) when
+                                 * a reply is sent. */
+    uint8_t reply_disposition;  /* the received message's local-bit disposition
+                                 * (send-once vs send); reused as the reply's
+                                 * remote disposition so the right kind moves
+                                 * correctly. */
+    void (*reply_finalizer)(void *context); /* handoff_reply_f(): invoked when
+                                             * this dict is released */
+    void *reply_finalizer_ctx;
 } xpc_dictionary_t;
 
 typedef struct _xpc_error_s {
@@ -224,6 +246,7 @@ extern const struct _xpc_type_s _xpc_type_session;
 extern const struct _xpc_type_s _xpc_type_listener;
 extern const struct _xpc_type_s _xpc_type_fd;
 extern const struct _xpc_type_s _xpc_type_rich_error;
+extern const struct _xpc_type_s _xpc_type_mach_recv;
 
 extern xpc_object_t _xpc_bool_true;
 extern xpc_object_t _xpc_bool_false;
@@ -239,6 +262,29 @@ xpc_object_t xpc_object_alloc_scalar(xpc_type_t t);
  * right; xpc_mach_send_create_owned() takes a received right (COPY_SEND
  * from an OOL_PORTS descriptor) and deallocates it on release. */
 xpc_object_t xpc_mach_send_create_owned(mach_port_t port);
+
+/* Mach-recv construction (wire kind 0x15000).  A value boxes a receive
+ * right so it can travel inside a dictionary; the descriptor disposition
+ * on the wire is MOVE_RECEIVE, so a serialized-and-sent mach-recv value is
+ * single-use — the source right is consumed, exactly like Apple's
+ * __xpc_mach_recv_serialize.  xpc_mach_recv_create() takes ownership of a
+ * receive right (xpc_dictionary_set_mach_recv's flavor);
+ * _owned() wraps a right that arrived from the wire.  Both destroy the
+ * right on release if it was never consumed. */
+xpc_object_t xpc_mach_recv_create_owned(mach_port_t port);
+mach_port_t xpc_mach_recv_extract_right(xpc_object_t obj);
+
+/* Reply-context: stamp a dictionary deserialized from a received message
+ * with the message's reply capability.  mode becomes 1 ("received request")
+ * and *port is remembered as reply_port, along with the local-bit
+ * disposition the message arrived with (needed to move the right back at
+ * reply time). */
+void xpc_dictionary_attach_reply_context(xpc_object_t dict,
+    mach_port_t reply_port, uint8_t reply_disposition);
+
+/* Received msgh_bits local-field disposition → the disposition that moves
+ * the right back out (send-once ⇒ MOVE_SEND_ONCE, send ⇒ MOVE_SEND). */
+uint8_t xpc_reply_move_disposition(uint8_t local_bit);
 
 /* File-descriptor construction (wire kind 0xb000).  A value boxes a file
  * descriptor into a fileport send right (fileport_makeport) so it can ride
@@ -353,6 +399,47 @@ int xpc_pipe_routine(xpc_pipe_t pipe, xpc_object_t obj,
 int xpc_pipe_routine_with_flags(xpc_pipe_t pipe, xpc_object_t obj,
     xpc_object_t *reply, uint64_t flags, uint32_t routine);
 int xpc_pipe_invalidate(xpc_pipe_t pipe);
+
+/*
+ * Reply dispatch: serialize a reply-mode dictionary (made by
+ * xpc_dictionary_create_reply() or a pipe receive) and send it to its
+ * reply port.  Returns 0 on success, EPIPE when the reply capability is
+ * gone, else a mach error code.  Shared by xpc_dictionary_send_reply() and
+ * xpc_pipe_routine_reply().
+ */
+int xpc_reply_send(xpc_object_t reply);
+
+/* Thin peer of xpc_reply_send() used by launchd (runtime.c) to flush a
+ * reply-mode dictionary created from a received request. */
+int xpc_pipe_routine_reply(xpc_object_t reply);
+
+/* Non-XPC (launchd MIG, notifications, ...) request demultiplexer handed
+ * to xpc_pipe_try_receive().  Returns true when REPLY was filled and should
+ * be sent back. */
+typedef boolean_t (*xpc_mig_demux_fn)(mach_msg_header_t *request,
+    mach_msg_header_t *reply);
+
+/*
+ * Blocking receive loop for a Mach port set (launchd-style).  Receives one
+ * message from *port_set_inout:
+ *
+ *   XPC requests (msgh_id in the 0x10000000/0x40000000 family) are
+ *   deserialized and *request_out is set, with the request's reply
+ *   capability stamped as the dict's reply context; *recv_port_out is set
+ *   to the port the message arrived on for the caller's demux keying.
+ *   Returns 0.
+ *
+ *   Anything else is handed to demux(request, reply) when provided; the
+ *   reply is sent back when demux accepts it.  Returns 0 when handled,
+ *   EINVAL otherwise.
+ *
+ * msg_size bounds the receive buffer (also the MIG reply buffer); flags
+ * currently unused (Apple's is likewise a reserved stone for callers that
+ * pass 0).
+ */
+int xpc_pipe_try_receive(mach_port_t *port_set_inout, xpc_object_t *request_out,
+    mach_port_t *recv_port_out, xpc_mig_demux_fn demux,
+    mach_msg_size_t msg_size, uint64_t flags);
 
 /*
  * Same-task bridge for the launchd stub (launchd_stub.c).  A Mach reply

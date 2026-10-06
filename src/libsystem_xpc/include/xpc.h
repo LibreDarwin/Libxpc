@@ -299,6 +299,37 @@ xpc_object_t xpc_dictionary_create_connection(xpc_object_t object,
 xpc_object_t xpc_dictionary_create_reply(xpc_object_t original);
 xpc_object_t xpc_dictionary_get_remote_connection(xpc_object_t object);
 
+#pragma mark - Reply context
+
+/*
+ * Reply machinery for dictionaries received over a pipe (see the pipe-layer
+ * note in xpc_internal.h).  A received request carries a reply capability;
+ * create_reply() mints a fresh reply dictionary that owns it, and
+ * send_reply() ships one to the requester.  The capability moves exactly
+ * once, so these are destructive.  handoff_reply(_f) transfer it to a new
+ * dictionary (the _f variant runs a finalizer when the handoff is later
+ * dropped without being sent).
+ */
+bool xpc_dictionary_expects_reply(xpc_object_t original);
+void xpc_dictionary_send_reply(xpc_object_t reply);
+xpc_object_t xpc_dictionary_handoff_reply(xpc_object_t reply);
+xpc_object_t xpc_dictionary_handoff_reply_f(xpc_object_t reply,
+    void (*finalizer)(void *context), void *context);
+
+#pragma mark - Mach-Recv
+
+/*
+ * Wrap a receive right for transport as a dictionary value.  The object
+ * owns the right from birth (as in Apple's xpc_mach_recv_create(3));
+ * serializing the value moves the right to the peer (MOVE_RECEIVE), and
+ * xpc_mach_recv_extract_right() returns it to a caller -- each either
+ * consumes the right or releases it.
+ */
+xpc_object_t xpc_mach_recv_create(mach_port_t port);
+mach_port_t xpc_mach_recv_extract_right(xpc_object_t object);
+void xpc_dictionary_set_mach_recv(xpc_object_t object, const char *key,
+    mach_port_t port);
+
 #pragma mark - Mach-Send
 
 /*

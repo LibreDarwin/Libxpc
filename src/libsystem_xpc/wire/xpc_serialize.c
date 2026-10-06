@@ -106,24 +106,35 @@ wbuf_pad4(xpc_wbuf_t *w)
  *
  * Port names are copied into the table; the rights themselves are only
  * referenced, never consumed (the descriptor disposition is COPY_SEND).
+ *
+ * mach-recv values append their receive right with a MOVE_RECEIVE
+ * disposition instead: the kernel relocates the right into the receiving
+ * task and strips it here, so the value is single-use (matching Apple's
+ * __xpc_mach_recv_serialize).
  */
 typedef struct {
     mach_port_t *ports;
+    uint8_t     *disp;
     uint32_t nports;
     uint32_t cap;
 } xpc_porttab_t;
 
 static bool
-porttab_add(xpc_porttab_t *pt, mach_port_t port)
+porttab_add(xpc_porttab_t *pt, mach_port_t port, uint8_t disposition)
 {
     if (pt->nports >= pt->cap) {
         uint32_t newcap = pt->cap ? pt->cap * 2 : 8;
         mach_port_t *np = realloc(pt->ports, newcap * sizeof(mach_port_t));
         if (!np) return false;
         pt->ports = np;
+        uint8_t *nd = realloc(pt->disp, newcap * sizeof(uint8_t));
+        if (!nd) return false;
+        pt->disp = nd;
         pt->cap = newcap;
     }
-    pt->ports[pt->nports++] = port;
+    pt->ports[pt->nports] = port;
+    pt->disp[pt->nports] = disposition;
+    pt->nports++;
     return true;
 }
 
@@ -187,7 +198,7 @@ xpc_serialize_value(xpc_wbuf_t *w, xpc_object_t obj, xpc_porttab_t *pt)
          * appended under a COPY_SEND descriptor. */
         xpc_fd_t *f = XPC_CAST(xpc_fd_t, obj);
         uint32_t idx = pt->nports;
-        if (!porttab_add(pt, f->port)) break;
+        if (!porttab_add(pt, f->port, MACH_MSG_TYPE_COPY_SEND)) break;
         if (idx > 0xff) break;  /* table slots are 8-bit encoded */
         wbuf_u32(w, XPC_WIRE_FD | idx);
         break;
@@ -195,7 +206,7 @@ xpc_serialize_value(xpc_wbuf_t *w, xpc_object_t obj, xpc_porttab_t *pt)
     case XPC_KIND_MACH_SEND: {
         xpc_mach_send_t *m = XPC_CAST(xpc_mach_send_t, obj);
         uint32_t idx = pt->nports;
-        (void)porttab_add(pt, m->port);
+        (void)porttab_add(pt, m->port, MACH_MSG_TYPE_COPY_SEND);
         /* Captured system-libxpc messages carry slot values as a bare
          * type tag with the descriptor index in the tag's low byte
          * (0xd000 = slot 0, no separate payload). */
@@ -203,10 +214,23 @@ xpc_serialize_value(xpc_wbuf_t *w, xpc_object_t obj, xpc_porttab_t *pt)
         wbuf_u32(w, XPC_WIRE_MACH_SEND | idx);
         break;
     }
+    case XPC_KIND_MACH_RECV: {
+        /* Receive right rides as a MOVE_RECEIVE descriptor: the kernel
+         * transfers the right to the receiver, so the send side consumes
+         * its copy here (the value would otherwise double-send). */
+        xpc_mach_recv_t *m = XPC_CAST(xpc_mach_recv_t, obj);
+        uint32_t idx = pt->nports;
+        if (!porttab_add(pt, m->port, MACH_MSG_TYPE_MOVE_RECEIVE)) break;
+        if (idx > 0xff) break;  /* table slots are 8-bit encoded */
+        m->port = MACH_PORT_NULL;
+        m->dispose = false;
+        wbuf_u32(w, XPC_WIRE_MACH_RECV | idx);
+        break;
+    }
     case XPC_KIND_SHMEM: {
         xpc_shmem_t *s = XPC_CAST(xpc_shmem_t, obj);
         uint32_t idx = pt->nports;
-        (void)porttab_add(pt, s->port);
+        (void)porttab_add(pt, s->port, MACH_MSG_TYPE_COPY_SEND);
         if (idx > 0xff) return;
         /* Captured system-libxpc messages carry shmem values as the
          * 0xc000 tag followed by the entry's page-aligned size as a
@@ -250,7 +274,8 @@ xpc_serialize_value(xpc_wbuf_t *w, xpc_object_t obj, xpc_porttab_t *pt)
              * Captured probe11 with_ep message: `ep` → 00 20 01 00
              * (tag 0x12000, slot 0) with a single port descriptor. */
             uint32_t idx = pt->nports;
-            if (!porttab_add(pt, XPC_CAST(xpc_endpoint_t, obj)->port))
+            if (!porttab_add(pt, XPC_CAST(xpc_endpoint_t, obj)->port,
+                    MACH_MSG_TYPE_COPY_SEND))
                 break;
             if (idx > 0xff) break;  /* table slots are 8-bit encoded */
             wbuf_u32(w, XPC_WIRE_ENDPOINT | idx);
@@ -333,6 +358,7 @@ xpc_wire_serialize(xpc_object_t object, uint32_t msg_id, size_t *out_len)
     if (!wbuf_reserve(&w, total)) {
         free(b.base);
         free(pt.ports);
+        free(pt.disp);
         return NULL;
     }
     w.len = 0;
@@ -354,14 +380,16 @@ xpc_wire_serialize(xpc_object_t object, uint32_t msg_id, size_t *out_len)
 
     if (nports) {
         /* msgh_body_t: descriptor count, then one port descriptor per
-         * send right.  mach_msg_port_descriptor_t (12B on LP64):
-         * name(4) + pad1(4) + pad2(2) + disposition(1) + type(1). */
+         * right.  mach_msg_port_descriptor_t (12B on LP64):
+         * name(4) + pad1(4) + pad2(2) + disposition(1) + type(1).
+         * Dispositions come from the table: COPY_SEND for send rights,
+         * MOVE_RECEIVE for mach-recv values. */
         wbuf_u32(&w, (uint32_t)nports);
         for (size_t i = 0; i < nports; i++) {
             mach_msg_port_descriptor_t desc;
             memset(&desc, 0, sizeof desc);
             desc.name = pt.ports[i];
-            desc.disposition = MACH_MSG_TYPE_COPY_SEND; /* 0x13 */
+            desc.disposition = pt.disp[i];
             desc.type = MACH_MSG_PORT_DESCRIPTOR;       /* 0x00 */
             wbuf_write(&w, &desc, sizeof desc);
         }
@@ -369,6 +397,7 @@ xpc_wire_serialize(xpc_object_t object, uint32_t msg_id, size_t *out_len)
         /* msgh_body_t absent for simple messages. */
     }
     free(pt.ports);
+    free(pt.disp);
 
     /* Envelope. */
     wbuf_write(&w, XPC_WIRE_MAGIC, 4);

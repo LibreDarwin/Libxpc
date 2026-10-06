@@ -32,6 +32,7 @@
 #include "xpc_internal.h"
 #include "xpc_private.h"
 
+#include <errno.h>
 #include <mach/mach.h>
 
 struct _xpc_pipe_s {
@@ -345,4 +346,181 @@ int xpc_pipe_routine(xpc_pipe_t p, xpc_object_t o, xpc_object_t *r,
      * e.g. 0x400000cf for "list". Without the routine bits launchd's
      * dispatcher cannot demux the request. */
     return send(p, o, r, XPC_PIPE_ID_ROUTINE | (routine & 0xffff));
+}
+
+#pragma mark - Reply dispatch
+
+/*
+ * xpc_reply_send() — send a reply-mode dictionary to its reply port.
+ *
+ * Consumes the dictionary's reply capability (msg_mode 2), serializes the
+ * dict fresh (Apples serialize on send, so later edits to the dict cannot
+ * change an already-sent reply), and moves the reply right to the peer.
+ * Returns 0 on success, EPIPE when there is no capability to send from,
+ * else the mach error.  Shared by xpc_dictionary_send_reply() and
+ * xpc_pipe_routine_reply().
+ */
+int
+xpc_reply_send(xpc_object_t reply)
+{
+    if (!XPC_OBJECT_CHECK(reply, &_xpc_type_dictionary)) return EPIPE;
+    xpc_dictionary_t *d = XPC_CAST(xpc_dictionary_t, reply);
+    if (d->msg_mode != 2 || !MACH_PORT_VALID(d->reply_port)) return EPIPE;
+
+    mach_port_t target = d->reply_port;
+    uint8_t disp = d->reply_disposition;
+    d->reply_port = MACH_PORT_NULL;   /* consume: send succeeds at most once */
+    d->msg_mode = 0;
+
+    size_t length = 0;
+    uint8_t *bytes = xpc_wire_serialize(reply, XPC_PIPE_ID_REPLY, &length);
+    if (!bytes) return KERN_INVALID_ARGUMENT;
+    mach_msg_header_t *message = (mach_msg_header_t *)(void *)bytes;
+
+    message->msgh_remote_port = target;
+    message->msgh_local_port = MACH_PORT_NULL;
+    message->msgh_voucher_port = MACH_PORT_NULL;
+    /* Use the recorded move-disposition so send-once reply rights actually
+     * leave.  The COMPLEX bit survives from the serializer. */
+    message->msgh_bits = (message->msgh_bits & MACH_MSGH_BITS_COMPLEX) |
+        MACH_MSGH_BITS(disp, 0);
+
+    mach_msg_return_t result = mach_msg(message, MACH_SEND_MSG,
+        message->msgh_size, 0, MACH_PORT_NULL, 0, MACH_PORT_NULL);
+    free(bytes);
+    return result;
+}
+
+int
+xpc_pipe_routine_reply(xpc_object_t reply)
+{
+    return xpc_reply_send(reply);
+}
+
+#pragma mark - Receive loop
+
+/*
+ * xpc_pipe_try_receive() — blocking receive of one message from the given
+ * port set, launchd/launchctl-style.
+ *
+ * XPC messages (msgh_id in the 0x10000000/0x40000000 family) are
+ * deserialized: *request_out is the request dictionary with its reply
+ * capability attached (xpc_dictionary_create_reply will mint it back), and
+ * *recv_port_out is the port the message was received on (for the caller's
+ * demux keying).  Returns 0.
+ *
+ * Other messages are offered to the mig demuxer when provided; a
+ * positively-demuxed request gets its reply sent back over the request's
+ * reply right.  Returns 0 when handled, EINVAL when not.
+ *
+ * The receive buffer is msg_size + MAX_TRAILER_SIZE so the caller's msg_size
+ * bounds the *message*, not the trailer.  MACH_RCV_LARGE keeps oversized
+ * messages queued rather than silently destroyed, and the audit trailer is
+ * requested so a caller can match replies to senders.
+ */
+int
+xpc_pipe_try_receive(mach_port_t *port_set_inout, xpc_object_t *request_out,
+    mach_port_t *recv_port_out, xpc_mig_demux_fn demux,
+    mach_msg_size_t msg_size, uint64_t flags)
+{
+    (void)flags;    /* Apple's flags slot is likewise unused by callers today */
+    if (!port_set_inout || !request_out) return EINVAL;
+    *request_out = NULL;
+    if (recv_port_out) *recv_port_out = MACH_PORT_NULL;
+
+    mach_msg_size_t trailer_avail = MAX_TRAILER_SIZE;
+    mach_msg_size_t buf_size = msg_size + trailer_avail;
+    uint8_t *buffer = malloc(buf_size);
+    if (!buffer) return ENOMEM;
+    mach_msg_header_t *msg = (mach_msg_header_t *)(void *)buffer;
+
+    mach_msg_return_t result = mach_msg(msg,
+        MACH_RCV_MSG | MACH_RCV_LARGE | XPC_RCV_TRAILER_OPTS, 0, buf_size,
+        *port_set_inout, 0, MACH_PORT_NULL);
+    if (result != KERN_SUCCESS) {
+        free(buffer);
+        return result;
+    }
+
+    /* The message now owns: msgh_remote_port = the sender's reply right
+     * (a send/send-once right, if the sender armed one), msgh_local_port =
+     * the port in our set that caught the message. */
+    if (recv_port_out) *recv_port_out = msg->msgh_local_port;
+
+    if (msg->msgh_id & (XPC_PIPE_ID_ROUTINE | XPC_PIPE_ID_SIMPLEROUTINE)) {
+        xpc_pipe_reply_t pl;
+        if (pipe_reply_payload(msg, &pl) != KERN_SUCCESS) {
+            if (getenv("XPC_DEBUG")) {
+                fprintf(stderr, "[pipe] try_receive: no payload in "
+                    "XPC request\n");
+            }
+            free(buffer);
+            return KERN_INVALID_ARGUMENT;
+        }
+        xpc_object_t dict = xpc_wire_deserialize_with_ports(pl.bytes, pl.len,
+            pl.ports, pl.nports);
+        if (pl.ool_addr && pl.ool_deallocate) {
+            vm_deallocate(mach_task_self(), pl.ool_addr, pl.ool_len);
+        }
+        if (pl.ports && pl.ports_deallocate) {
+            vm_deallocate(mach_task_self(), (vm_address_t)(uintptr_t)pl.ports,
+                pl.ports_len);
+        } else if (pl.ports && pl.ports_heap) {
+            free(pl.ports);
+        }
+        if (!dict) {
+            free(buffer);
+            return KERN_INVALID_ARGUMENT;
+        }
+        /* Stamp the reply capability when the request actually carried a
+         * send/send-once right to answer on (remote-bit disposition in the
+         * MOVE_SEND..MAKE_SEND_ONCE span). */
+        uint8_t rem = MACH_MSGH_BITS_REMOTE(msg->msgh_bits);
+        if (MACH_PORT_VALID(msg->msgh_remote_port) &&
+            rem >= MACH_MSG_TYPE_MOVE_SEND &&
+            rem <= MACH_MSG_TYPE_MAKE_SEND_ONCE) {
+            xpc_dictionary_attach_reply_context(dict, msg->msgh_remote_port,
+                rem);
+        }
+        /* Also remember who asked, from the audit trailer. */
+        mach_msg_audit_trailer_t *tr = (mach_msg_audit_trailer_t *)(void *)
+            ((uint8_t *)msg + round_msg(msg->msgh_size));
+        if (tr->msgh_trailer_type == MACH_MSG_TRAILER_FORMAT_0 &&
+            tr->msgh_trailer_size >= (mach_msg_trailer_size_t)sizeof(*tr)) {
+            xpc_dictionary_set_audit_token(dict, &tr->msgh_audit);
+        }
+        *request_out = dict;
+        free(buffer);
+        return 0;
+    }
+
+    /* Non-XPC (MIG-style, notification, ...) traffic. */
+    if (demux) {
+        mach_msg_header_t *reply = NULL;
+        if (msg_size >= sizeof(mach_msg_header_t)) {
+            reply = calloc(1, msg_size);
+        }
+        if (!reply) {
+            free(buffer);
+            return ENOMEM;
+        }
+        if (demux(msg, reply)) {
+            uint8_t disp = xpc_reply_move_disposition(
+                MACH_MSGH_BITS_REMOTE(msg->msgh_bits));
+            reply->msgh_remote_port = msg->msgh_remote_port;
+            reply->msgh_local_port = MACH_PORT_NULL;
+            reply->msgh_voucher_port = MACH_PORT_NULL;
+            reply->msgh_bits = (reply->msgh_bits & MACH_MSGH_BITS_COMPLEX) |
+                MACH_MSGH_BITS(disp, 0);
+            mach_msg_return_t sres = mach_msg(reply, MACH_SEND_MSG,
+                reply->msgh_size, 0, MACH_PORT_NULL, 0, MACH_PORT_NULL);
+            free(reply);
+            free(buffer);
+            return sres == KERN_SUCCESS ? 0 : (int)sres;
+        }
+        free(reply);
+    }
+
+    free(buffer);
+    return EINVAL;
 }

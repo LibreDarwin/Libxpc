@@ -632,6 +632,39 @@ XPC_EXPORT XPC_NONNULL1
 xpc_connection_t
 xpc_dictionary_get_remote_connection(xpc_object_t xdict);
 
+#pragma mark Reply
+
+XPC_EXPORT XPC_NONNULL1
+bool
+xpc_dictionary_expects_reply(xpc_object_t original);
+
+XPC_EXPORT XPC_NONNULL1
+void
+xpc_dictionary_send_reply(xpc_object_t reply);
+
+XPC_EXPORT XPC_NONNULL1
+xpc_object_t
+xpc_dictionary_handoff_reply(xpc_object_t reply);
+
+XPC_EXPORT XPC_NONNULL1
+xpc_object_t
+xpc_dictionary_handoff_reply_f(xpc_object_t reply,
+    void (*finalizer)(void *context), void *context);
+
+#pragma mark Mach-Recv
+
+XPC_EXPORT XPC_MALLOC XPC_RETURNS_RETAINED XPC_WARN_RESULT
+xpc_object_t
+xpc_mach_recv_create(mach_port_t value);
+
+XPC_EXPORT XPC_NONNULL_ALL
+mach_port_t
+xpc_mach_recv_extract_right(xpc_object_t xrecv);
+
+XPC_EXPORT XPC_NONNULL1 XPC_NONNULL2
+void
+xpc_dictionary_set_mach_recv(xpc_object_t xdict, const char *key, mach_port_t value);
+
 #pragma mark Runtime
 
 XPC_EXPORT XPC_NORETURN XPC_NONNULL1

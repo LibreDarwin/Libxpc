@@ -99,6 +99,15 @@ xpc_release(xpc_object_t obj)
         }
         free(d->keys);
         free(d->values);
+        if (d->reply_finalizer) {
+            void (*fin)(void *) = d->reply_finalizer;
+            void *ctx = d->reply_finalizer_ctx;
+            d->reply_finalizer = NULL;
+            fin(ctx);
+        } else if (d->msg_mode != 0 && MACH_PORT_VALID(d->reply_port)) {
+            /* An unconverted request right or unsent reply loses its capability. */
+            mach_port_deallocate(mach_task_self(), d->reply_port);
+        }
         break;
     }
     case XPC_KIND_ERROR: {
@@ -110,6 +119,16 @@ xpc_release(xpc_object_t obj)
         xpc_mach_send_t *m = XPC_CAST(xpc_mach_send_t, obj);
         if (m->dispose) {
             mach_port_deallocate(mach_task_self(), m->port);
+        }
+        break;
+    }
+    case XPC_KIND_MACH_RECV: {
+        /* destroy an unconsumed receive right (mod_refs -1, not
+         * mach_port_deallocate, which only drops the name for send rights). */
+        xpc_mach_recv_t *m = XPC_CAST(xpc_mach_recv_t, obj);
+        if (m->dispose && MACH_PORT_VALID(m->port)) {
+            mach_port_mod_refs(mach_task_self(), m->port,
+                MACH_PORT_RIGHT_RECEIVE, -1);
         }
         break;
     }
