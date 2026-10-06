@@ -196,6 +196,11 @@ typedef struct _xpc_connection_s {
     mach_port_t port;
 } xpc_connection_t;
 
+typedef struct _xpc_fd_s {
+    struct _xpc_object_s hdr;
+    mach_port_t port;       /* fileport send right */
+} xpc_fd_t;
+
 #pragma mark - Type singletons (xpc_types.c)
 
 extern const struct _xpc_type_s _xpc_type_null;
@@ -234,6 +239,14 @@ xpc_object_t xpc_object_alloc_scalar(xpc_type_t t);
  * right; xpc_mach_send_create_owned() takes a received right (COPY_SEND
  * from an OOL_PORTS descriptor) and deallocates it on release. */
 xpc_object_t xpc_mach_send_create_owned(mach_port_t port);
+
+/* File-descriptor construction (wire kind 0xb000).  A value boxes a file
+ * descriptor into a fileport send right (fileport_makeport) so it can ride
+ * in the message's descriptor table; the public xpc_fd_create() boxes and
+ * xpc_fd_create_from_port() wraps a right received from the wire.  Unlike
+ * mach-send there is no borrowing form, so fd objects always own their
+ * right and deallocate it on release. */
+xpc_object_t xpc_fd_create_from_port(mach_port_t port);
 
 /* Same-task bridge (see xpc_pipe.c): a registered handler answers
  * serialized routine requests in place of a mach_msg reply hop. */

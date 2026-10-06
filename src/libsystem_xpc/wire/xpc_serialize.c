@@ -180,6 +180,18 @@ xpc_serialize_value(xpc_wbuf_t *w, xpc_object_t obj, xpc_porttab_t *pt)
         wbuf_u32(w, XPC_WIRE_UUID);
         wbuf_write(w, XPC_CAST(xpc_uuid_t, obj)->uuid, 16);
         break;
+    case XPC_KIND_FD: {
+        /* Fileport values ride in the message's descriptor table exactly
+         * like endpoints: zero payload, slot encoded in the tag's low byte.
+         * Apple's __xpc_fd_serialize emits tag 0xb000 with the port
+         * appended under a COPY_SEND descriptor. */
+        xpc_fd_t *f = XPC_CAST(xpc_fd_t, obj);
+        uint32_t idx = pt->nports;
+        if (!porttab_add(pt, f->port)) break;
+        if (idx > 0xff) break;  /* table slots are 8-bit encoded */
+        wbuf_u32(w, XPC_WIRE_FD | idx);
+        break;
+    }
     case XPC_KIND_MACH_SEND: {
         xpc_mach_send_t *m = XPC_CAST(xpc_mach_send_t, obj);
         uint32_t idx = pt->nports;

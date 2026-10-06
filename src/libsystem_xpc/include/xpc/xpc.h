@@ -320,7 +320,7 @@ const void *
 xpc_data_get_bytes_ptr(xpc_object_t xdata);
 
 XPC_EXPORT XPC_NONNULL1 XPC_NONNULL2
-bool
+size_t
 xpc_data_get_bytes(xpc_object_t xdata, void *buffer, size_t off, size_t length);
 
 #pragma mark String
@@ -436,7 +436,7 @@ const uint8_t *
 xpc_array_get_uuid(xpc_object_t xarray, size_t index);
 
 XPC_EXPORT XPC_NONNULL1
-xpc_object_t
+int64_t
 xpc_array_get_date(xpc_object_t xarray, size_t index);
 
 XPC_EXPORT XPC_NONNULL1
@@ -483,10 +483,6 @@ xpc_array_set_uuid(xpc_object_t xarray, size_t index,
 XPC_EXPORT XPC_NONNULL1
 void
 xpc_array_set_date(xpc_object_t xarray, size_t index, int64_t value);
-
-XPC_EXPORT XPC_NONNULL1
-void
-xpc_array_set_fd(xpc_object_t xarray, size_t index, int fd);
 
 XPC_EXPORT XPC_NONNULL1
 int

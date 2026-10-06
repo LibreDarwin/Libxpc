@@ -118,6 +118,13 @@ xpc_release(xpc_object_t obj)
         xpc_shmem_dispose(s);
         break;
     }
+    case XPC_KIND_FD: {
+        xpc_fd_t *f = XPC_CAST(xpc_fd_t, obj);
+        if (MACH_PORT_VALID(f->port)) {
+            mach_port_deallocate(mach_task_self(), f->port);
+        }
+        break;
+    }
     case XPC_KIND_ENDPOINT:
     case XPC_KIND_CONNECTION:
         /* mach ports are managed by the kernel; no heap payload. */
@@ -286,4 +293,19 @@ xpc_hash(xpc_object_t obj)
 
 #undef HASH_BYTE
 #undef HASH_NBYTES
+}
+const char *
+xpc_type_get_name(xpc_type_t type)
+{
+	if (type == NULL)
+		return NULL;
+	return type->name;
+}
+
+xpc_object_t
+xpc_copy(xpc_object_t object)
+{
+	if (object == NULL)
+		return NULL;
+	return xpc_retain(object);
 }

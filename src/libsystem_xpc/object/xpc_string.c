@@ -38,6 +38,8 @@
 
 #include "xpc_internal.h"
 
+#include <stdarg.h>
+
 xpc_object_t
 xpc_string_create(const char *value)
 {
@@ -89,4 +91,34 @@ xpc_string_create_no_copy(const char *value, size_t length, xpc_finalizer_t fina
     s->data = (char *)value;
     s->length = length == (size_t)-1 ? strlen(value) : length;
     return (xpc_object_t)s;
+}
+
+xpc_object_t
+xpc_string_create_with_format_and_arguments(const char *fmt, va_list ap)
+{
+    if (!fmt) return NULL;
+
+    va_list ap2;
+    va_copy(ap2, ap);
+    int n = vsnprintf(NULL, 0, fmt, ap2);
+    va_end(ap2);
+    if (n < 0) return NULL;
+
+    char *buf = malloc((size_t)n + 1);
+    if (!buf) return NULL;
+    vsnprintf(buf, (size_t)n + 1, fmt, ap);
+
+    xpc_object_t s = xpc_string_create_with_length(buf, (size_t)n);
+    free(buf);
+    return s;
+}
+
+xpc_object_t
+xpc_string_create_with_format(const char *fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    xpc_object_t s = xpc_string_create_with_format_and_arguments(fmt, ap);
+    va_end(ap);
+    return s;
 }

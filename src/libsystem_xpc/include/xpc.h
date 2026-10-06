@@ -111,6 +111,7 @@ extern const struct _xpc_type_s _xpc_type_endpoint;
 extern const struct _xpc_type_s _xpc_type_activity;
 extern const struct _xpc_type_s _xpc_type_session;
 extern const struct _xpc_type_s _xpc_type_listener;
+extern const struct _xpc_type_s _xpc_type_fd;
 
 #pragma mark - Connection
 
@@ -193,7 +194,7 @@ xpc_object_t xpc_data_create(const void *bytes, size_t length);
 xpc_object_t xpc_data_create_with_bytes(const void *bytes, size_t length);
 size_t xpc_data_get_length(xpc_object_t object);
 const void *xpc_data_get_bytes_ptr(xpc_object_t object);
-bool xpc_data_get_bytes(xpc_object_t object, void *bytes, size_t offset,
+size_t xpc_data_get_bytes(xpc_object_t object, void *bytes, size_t offset,
     size_t length);
 
 #pragma mark - String
@@ -208,6 +209,11 @@ const char *xpc_string_get_string_ptr(xpc_object_t object);
 
 xpc_object_t xpc_uuid_create(const uuid_t uuid);
 const uint8_t *xpc_uuid_get_bytes(xpc_object_t object);
+
+#pragma mark - File descriptors
+
+xpc_object_t xpc_fd_create(int fd);
+int xpc_fd_dup(xpc_object_t xfd);
 
 #pragma mark - Array
 
@@ -230,9 +236,15 @@ const void *xpc_array_get_data(xpc_object_t object, size_t index,
 bool xpc_array_get_data_np(xpc_object_t object, size_t index,
     const void **bytes, size_t *length);
 const uint8_t *xpc_array_get_uuid(xpc_object_t object, size_t index);
-xpc_object_t xpc_array_get_date(xpc_object_t object, size_t index);
+int64_t xpc_array_get_date(xpc_object_t object, size_t index);
 bool xpc_array_apply(xpc_object_t object,
     bool (^applier)(size_t index, xpc_object_t value));
+void xpc_array_set_fd(xpc_object_t object, size_t index, int fd);
+int xpc_array_dup_fd(xpc_object_t object, size_t index);
+void xpc_array_set_connection(xpc_object_t object, size_t index,
+    xpc_object_t connection);
+xpc_object_t xpc_array_create_connection(xpc_object_t object,
+    size_t index);
 
 #pragma mark - Dictionary
 
@@ -278,6 +290,14 @@ void xpc_dictionary_set_date(xpc_object_t object, const char *key,
     int64_t value);
 void xpc_dictionary_set_mach_send(xpc_object_t object, const char *key,
     mach_port_t port);
+void xpc_dictionary_set_fd(xpc_object_t object, const char *key, int fd);
+int xpc_dictionary_dup_fd(xpc_object_t object, const char *key);
+void xpc_dictionary_set_connection(xpc_object_t object, const char *key,
+    xpc_object_t connection);
+xpc_object_t xpc_dictionary_create_connection(xpc_object_t object,
+    const char *key);
+xpc_object_t xpc_dictionary_create_reply(xpc_object_t original);
+xpc_object_t xpc_dictionary_get_remote_connection(xpc_object_t object);
 
 #pragma mark - Mach-Send
 

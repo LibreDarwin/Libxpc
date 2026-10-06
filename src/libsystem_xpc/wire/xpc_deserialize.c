@@ -80,6 +80,15 @@ static xpc_object_t read_value(xpc_deser_t *d) {
     }
     case XPC_WIRE_DATE: if (!read_u64(r, &q)) return NULL; return xpc_date_create((int64_t)q);
     case XPC_WIRE_UUID: if (!read_bytes(r, 16, &p)) return NULL; return xpc_uuid_create(p);
+    case XPC_WIRE_FD: {
+        /* Fileport value: zero payload, slot in the tag's low byte, the
+         * port right rides in the descriptor table.  The fd object owns
+         * that right and deallocates it on release (Apple
+         * __xpc_fd_deserialize). */
+        uint32_t idx = tag & 0xff;
+        if (!d->ports || idx >= d->nports) return NULL;
+        return xpc_fd_create_from_port(d->ports[idx]);
+    }
     case XPC_WIRE_MACH_SEND: {
         /* Slot value: the tag's low byte is the index into the message's
          * port table (port descriptors or OOL_PORTS, per §11.2).  A

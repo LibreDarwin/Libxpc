@@ -91,6 +91,10 @@ xpc_array_set_value(xpc_object_t array, size_t index, xpc_object_t value)
 {
     if (!XPC_OBJECT_CHECK(array, &_xpc_type_array)) return;
     xpc_array_t *a = XPC_CAST(xpc_array_t, array);
+    if (index == XPC_ARRAY_APPEND) { /* Apple: APPEND works for set_value too */
+        xpc_array_append_value(array, value);
+        return;
+    }
     if (index >= a->count) return;   /* Apple: set only replaces existing */
 
     xpc_object_t old = a->items[index];
@@ -170,11 +174,170 @@ xpc_array_set_string(xpc_object_t xarray, size_t index, const char *string)
     xpc_release(obj);
 }
 
+/* --- primitive getters (Apple: wrong type / out of range -> 0 / NULL) --- */
+
+bool
+xpc_array_get_bool(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t v = xpc_array_get_value(xarray, index);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_bool)) return false;
+    return XPC_CAST(xpc_scalar_t, v)->v.bval;
+}
+
+int64_t
+xpc_array_get_int64(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t v = xpc_array_get_value(xarray, index);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_int64)) return 0;
+    return XPC_CAST(xpc_scalar_t, v)->v.i64;
+}
+
+uint64_t
+xpc_array_get_uint64(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t v = xpc_array_get_value(xarray, index);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_uint64)) return 0;
+    return XPC_CAST(xpc_scalar_t, v)->v.u64;
+}
+
+double
+xpc_array_get_double(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t v = xpc_array_get_value(xarray, index);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_double)) return 0.0;
+    return XPC_CAST(xpc_scalar_t, v)->v.dbl;
+}
+
+int64_t
+xpc_array_get_date(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t v = xpc_array_get_value(xarray, index);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_date)) return 0;
+    return XPC_CAST(xpc_scalar_t, v)->v.date_ns;
+}
+
+const void *
+xpc_array_get_data(xpc_object_t xarray, size_t index, size_t *length)
+{
+    xpc_object_t v = xpc_array_get_value(xarray, index);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_data)) {
+        if (length) *length = 0;
+        return NULL;
+    }
+    xpc_data_t *d = XPC_CAST(xpc_data_t, v);
+    if (length) *length = d->length;
+    return d->data;
+}
+
+const uint8_t *
+xpc_array_get_uuid(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t v = xpc_array_get_value(xarray, index);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_uuid)) return NULL;
+    return XPC_CAST(xpc_uuid_t, v)->uuid;
+}
+
+xpc_object_t
+xpc_array_get_array(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t v = xpc_array_get_value(xarray, index);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_array)) return NULL;
+    return v;
+}
+
+xpc_object_t
+xpc_array_get_dictionary(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t v = xpc_array_get_value(xarray, index);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_dictionary)) return NULL;
+    return v;
+}
+
+/* --- primitive setters (XPC_ARRAY_APPEND appends, like set_int64) --- */
+
+static void
+xpc_array_set_scalar(xpc_object_t xarray, size_t index, xpc_object_t obj)
+{
+    if (index == XPC_ARRAY_APPEND) {
+        xpc_array_append_value(xarray, obj);
+    } else {
+        xpc_array_set_value(xarray, index, obj);
+    }
+    xpc_release(obj);
+}
+
+void
+xpc_array_set_bool(xpc_object_t xarray, size_t index, bool value)
+{
+    xpc_array_set_scalar(xarray, index, xpc_bool_create(value));
+}
+
+void
+xpc_array_set_uint64(xpc_object_t xarray, size_t index, uint64_t value)
+{
+    xpc_array_set_scalar(xarray, index, xpc_uint64_create(value));
+}
+
+void
+xpc_array_set_double(xpc_object_t xarray, size_t index, double value)
+{
+    xpc_array_set_scalar(xarray, index, xpc_double_create(value));
+}
+
+void
+xpc_array_set_date(xpc_object_t xarray, size_t index, int64_t value)
+{
+    xpc_array_set_scalar(xarray, index, xpc_date_create(value));
+}
+
+void
+xpc_array_set_data(xpc_object_t xarray, size_t index, const void *bytes,
+    size_t length)
+{
+    xpc_array_set_scalar(xarray, index, xpc_data_create(bytes, length));
+}
+
+void
+xpc_array_set_uuid(xpc_object_t xarray, size_t index, const uuid_t uuid)
+{
+    xpc_array_set_scalar(xarray, index, xpc_uuid_create(uuid));
+}
+
+/* --- file descriptors and connections --- */
+
 void
 xpc_array_set_fd(xpc_object_t xarray, size_t index, int fd)
 {
-    (void)xarray;
-    (void)index;
-    (void)fd;
-    /* Placeholder: our wire layer does not transport FDs in this form. */
+    xpc_object_t obj = xpc_fd_create(fd);
+    if (!obj) return;
+    xpc_array_set_scalar(xarray, index, obj);
+}
+
+int
+xpc_array_dup_fd(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t v = xpc_array_get_value(xarray, index);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_fd)) return -1;
+    return xpc_fd_dup(v);
+}
+
+void
+xpc_array_set_connection(xpc_object_t xarray, size_t index,
+    xpc_object_t connection)
+{
+    /* Stores an endpoint holding the connection's port; the array does not
+     * retain the connection itself (Apple xpc_array_set_connection(3)). */
+    if (!XPC_OBJECT_CHECK(connection, &_xpc_type_connection)) return;
+    xpc_object_t obj = xpc_endpoint_create(
+        XPC_CAST(xpc_connection_t, connection)->port);
+    if (!obj) return;
+    xpc_array_set_scalar(xarray, index, obj);
+}
+
+xpc_object_t
+xpc_array_create_connection(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t v = xpc_array_get_value(xarray, index);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_endpoint)) return NULL;
+    return xpc_connection_create_from_endpoint(v);
 }

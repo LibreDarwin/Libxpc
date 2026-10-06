@@ -38,6 +38,8 @@
 
 #include "xpc_internal.h"
 
+#include <time.h>
+
 #pragma mark - null
 
 xpc_object_t
@@ -146,6 +148,14 @@ xpc_date_get_value(xpc_object_t obj)
 {
     if (!XPC_OBJECT_CHECK(obj, &_xpc_type_date)) return 0;
     return XPC_CAST(xpc_scalar_t, obj)->v.date_ns;
+}
+
+xpc_object_t
+xpc_date_create_from_current(void)
+{
+    struct timespec ts;
+    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) return NULL;
+    return xpc_date_create((int64_t)ts.tv_sec * 1000000000 + ts.tv_nsec);
 }
 
 xpc_object_t

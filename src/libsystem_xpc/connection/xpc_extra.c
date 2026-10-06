@@ -295,6 +295,54 @@ xpc_dictionary_remove_value(xpc_object_t object, const char *key)
     xpc_dictionary_set_value(object, key, NULL);
 }
 
+void
+xpc_dictionary_set_connection(xpc_object_t dict, const char *key,
+    xpc_object_t connection)
+{
+    /* Stores an endpoint holding the connection's port; the dictionary does
+     * not retain the connection itself (Apple xpc_dictionary_set_connection(3)). */
+    if (!XPC_OBJECT_CHECK(connection, &_xpc_type_connection)) return;
+    xpc_object_t ep = xpc_endpoint_create(
+        XPC_CAST(xpc_connection_t, connection)->port);
+    if (!ep) return;
+    xpc_dictionary_set_value(dict, key, ep);
+    xpc_release(ep);
+}
+
+xpc_object_t
+xpc_dictionary_create_connection(xpc_object_t dict, const char *key)
+{
+    xpc_object_t v = xpc_dictionary_get_value(dict, key);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_endpoint)) return NULL;
+    return xpc_connection_create_from_endpoint(v);
+}
+
+xpc_object_t
+xpc_dictionary_create_reply(xpc_object_t original)
+{
+    /* Apple mints a reply only from a dictionary that arrived carrying a
+     * reply context -- a message a connection event handler received with a
+     * reply port attached -- and consumes that context so the call succeeds
+     * at most once.  This library has no such receive path yet: every
+     * dictionary it can produce is locally created or a request/reply read
+     * back off the bootstrap pipe, none of which carry a reply context.  So
+     * NULL is the exact answer for every object we can hand out today, and
+     * stays correct for all of them whenever the receive path lands. */
+    if (!XPC_OBJECT_CHECK(original, &_xpc_type_dictionary)) return NULL;
+    return NULL;
+}
+
+xpc_object_t
+xpc_dictionary_get_remote_connection(xpc_object_t xdict)
+{
+    /* Apple returns the connection a dictionary arrived on, which only a
+     * message received by a connection event handler -- or one minted by
+     * xpc_dictionary_create_reply() -- has.  See the note there: none of
+     * our dictionaries have one. */
+    if (!XPC_OBJECT_CHECK(xdict, &_xpc_type_dictionary)) return NULL;
+    return NULL;
+}
+
 char *
 xpc_copy_description(xpc_object_t object)
 {

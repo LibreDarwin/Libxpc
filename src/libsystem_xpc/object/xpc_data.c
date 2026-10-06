@@ -89,3 +89,15 @@ xpc_data_get_length(xpc_object_t obj)
     if (!XPC_OBJECT_CHECK(obj, &_xpc_type_data)) return 0;
     return XPC_CAST(xpc_data_t, obj)->length;
 }
+
+size_t
+xpc_data_get_bytes(xpc_object_t obj, void *buffer, size_t off, size_t length)
+{
+    if (!XPC_OBJECT_CHECK(obj, &_xpc_type_data)) return 0;
+    xpc_data_t *d = XPC_CAST(xpc_data_t, obj);
+    if (off >= d->length) return 0;
+    size_t avail = d->length - off;
+    size_t n = length < avail ? length : avail;
+    if (buffer && n > 0) memcpy(buffer, d->data + off, n);
+    return n;
+}
