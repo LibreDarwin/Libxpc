@@ -254,6 +254,7 @@ static int dumpjpcategory_cmd(int argc, char *const argv[]);
 static int variant_cmd(int argc, char *const argv[]);
 static int reboot_cmd(int argc, char *const argv[]);
 static int reload_atf_cmd(int argc, char *const argv[]);
+static int bootshell_cmd(int argc, char *const argv[]);
 static int dumpstate_cmd(int argc, char *const argv[]);
 static int version_cmd(int argc, char *const argv[]);
 
@@ -297,6 +298,7 @@ static const struct {
 	{ "variant",		variant_cmd,			"Print variant info" },
 	{ "reboot",			reboot_cmd,				"Reboot system" },
 	{ "reload-atf",		reload_atf_cmd,			"Reload ATF" },
+	{ "bootshell",		bootshell_cmd,			"Boot into single-user shell" },
 	{ "setenv",			setenv_cmd,				"Set an environmental variable in launchd" },
 	{ "unsetenv",		unsetenv_cmd,			"Unset an environmental variable in launchd" },
 	{ "getenv",			getenv_and_export_cmd,	"Get an environmental variable from launchd" },
@@ -4964,6 +4966,12 @@ GEN_USAGE(reload_atf_cmd, "reload-atf")
 
 static int
 dumpstate_cmd(int argc, char *const argv[])
+{
+	return 0;
+}
+
+static int
+bootshell_cmd(int argc, char *const argv[])
 {
 	return 0;
 }
