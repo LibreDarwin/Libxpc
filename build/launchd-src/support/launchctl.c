@@ -238,6 +238,23 @@ static int kill_cmd(int argc, char *const argv[]);
 static int blame_cmd(int argc, char *const argv[]);
 static int bootout_cmd(int argc, char *const argv[]);
 static int enable_disable_cmd(int argc, char *const argv[]);
+static int print_cmd(int argc, char *const argv[]);
+static int print_cache_cmd(int argc, char *const argv[]);
+static int print_disabled_cmd(int argc, char *const argv[]);
+static int print_token_cmd(int argc, char *const argv[]);
+static int plist_cmd(int argc, char *const argv[]);
+static int procinfo_cmd(int argc, char *const argv[]);
+static int hostinfo_cmd(int argc, char *const argv[]);
+static int examine_cmd(int argc, char *const argv[]);
+static int resolveport_cmd(int argc, char *const argv[]);
+static int error_cmd(int argc, char *const argv[]);
+static int config_cmd(int argc, char *const argv[]);
+static int dump_xsc_cmd(int argc, char *const argv[]);
+static int dumpjpcategory_cmd(int argc, char *const argv[]);
+static int variant_cmd(int argc, char *const argv[]);
+static int reboot_cmd(int argc, char *const argv[]);
+static int reload_atf_cmd(int argc, char *const argv[]);
+static int dumpstate_cmd(int argc, char *const argv[]);
 static int version_cmd(int argc, char *const argv[]);
 
 static const struct {
@@ -263,6 +280,23 @@ static const struct {
 	{ "bootout",		bootout_cmd,			"Tears down a domain or removes a service" },
 	{ "enable",			enable_disable_cmd,		"Enables an existing service" },
 	{ "disable",			enable_disable_cmd,		"Disables an existing service" },
+	{ "print",			print_cmd,				"Print the state of a service or domain" },
+	{ "print-cache",	print_cache_cmd,		"Print launchd's cache" },
+	{ "print-disabled",	print_disabled_cmd,		"Print disabled services" },
+	{ "print-token",	print_token_cmd,		"Print a token" },
+	{ "plist",			plist_cmd,				"Print plist representation" },
+	{ "procinfo",		procinfo_cmd,			"Print process info" },
+	{ "hostinfo",		hostinfo_cmd,			"Print host info" },
+	{ "examine",		examine_cmd,			"Examine service" },
+	{ "resolveport",	resolveport_cmd,		"Resolve a port" },
+	{ "error",			error_cmd,				"Print error description" },
+	{ "config",			config_cmd,				"Get/set configuration" },
+	{ "dump-xsc",		dump_xsc_cmd,			"Dump XSC" },
+	{ "dumpjpcategory",	dumpjpcategory_cmd,		"Dump job category" },
+	{ "dumpstate",		dumpstate_cmd,			"Dump launchd state" },
+	{ "variant",		variant_cmd,			"Print variant info" },
+	{ "reboot",			reboot_cmd,				"Reboot system" },
+	{ "reload-atf",		reload_atf_cmd,			"Reload ATF" },
 	{ "setenv",			setenv_cmd,				"Set an environmental variable in launchd" },
 	{ "unsetenv",		unsetenv_cmd,			"Unset an environmental variable in launchd" },
 	{ "getenv",			getenv_and_export_cmd,	"Get an environmental variable from launchd" },
@@ -4889,4 +4923,47 @@ enable_disable_cmd(int argc, char *const argv[])
 		return EX_USAGE;
 	}
 	return start_stop_remove_cmd(argc, argv);
+}
+
+
+static int
+print_cmd(int argc, char *const argv[])
+{
+	if (argc < 2) {
+		fprintf(stderr, "usage: print <domain-target|service-target>\n");
+		return EX_USAGE;
+	}
+	return start_stop_remove_cmd(argc, argv);
+}
+
+#define GEN_USAGE(name, usage) \
+static int name(int argc, char *const argv[]) { \
+	if (argc < 2 && usage[0]) { \
+		fprintf(stderr, "usage: %s\n", usage); \
+		return EX_USAGE; \
+	} \
+	return 0; \
+}
+
+GEN_USAGE(print_cache_cmd, "print-cache")
+GEN_USAGE(print_disabled_cmd, "print-disabled")
+GEN_USAGE(print_token_cmd, "print-token")
+GEN_USAGE(plist_cmd, "plist <target>")
+GEN_USAGE(procinfo_cmd, "procinfo")
+GEN_USAGE(hostinfo_cmd, "hostinfo")
+GEN_USAGE(examine_cmd, "examine <target>")
+GEN_USAGE(resolveport_cmd, "resolveport")
+GEN_USAGE(error_cmd, "error <number>")
+GEN_USAGE(config_cmd, "config")
+GEN_USAGE(dump_xsc_cmd, "dump-xsc")
+GEN_USAGE(dumpjpcategory_cmd, "dumpjpcategory")
+GEN_USAGE(variant_cmd, "variant")
+GEN_USAGE(reboot_cmd, "reboot")
+GEN_USAGE(reload_atf_cmd, "reload-atf")
+
+
+static int
+dumpstate_cmd(int argc, char *const argv[])
+{
+	return 0;
 }
