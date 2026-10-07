@@ -666,6 +666,48 @@ bool xpc_binprefs_is_noop(xpc_binprefs_t binprefs);
 void xpc_binprefs_set_psattr(xpc_binprefs_t binprefs,
     posix_spawnattr_t *psattr);
 
+#pragma mark - Spawnattr serialization (SPI)
+
+/*
+ * Internal spawnattr wire-format helpers.  A caller-supplied blob reserves
+ * 293 bytes (0x125) of fixed metadata; the string/byte section starts right
+ * after it, so every pack writes at 293 + cursor and every unpack reads
+ * back from the same base.  Two u32 blob-header fields at +68/+72 record
+ * the binprefs count and the binprefs section's offset in that region.
+ * Semantics pinned against Apple's libxpc:
+ *
+ *  - pack_string copies str and advances the u32 cursor and u64 space by
+ *    strlen + 1;
+ *  - pack_string_fragment advances by strlen only, so adjacent fragments
+ *    concatenate without a gap (the fragment's NUL is overwritten);
+ *  - pack_bytes copies len bytes and advances by len;
+ *  - unpack_string/bytes/strings return a pointer into the blob or NULL
+ *    when the data would run past `limit`, mirroring Apple's
+ *    `limit - offset` bounds math;
+ *  - binprefs_size is 8 * count; binprefs_pack writes count@+68 and the
+ *    starting offset@+72, then each (type, subtype) pair as 4+4 bytes at
+ *    293 + pk + 8*i and bumps pk/space by 8 * count; binprefs_unpack
+ *    mirrors that and returns a fresh block, or NULL when the count is
+ *    zero or the pairs run past `limit`.
+ */
+void _xpc_spawnattr_pack_string(void *buf, uint32_t *count,
+    uint64_t *space, const char *str);
+void _xpc_spawnattr_pack_string_fragment(void *buf, uint32_t *count,
+    uint64_t *space, const char *fragment);
+const char *_xpc_spawnattr_unpack_string(const void *buf, size_t limit,
+    uint32_t offset);
+void _xpc_spawnattr_pack_bytes(void *buf, uint32_t *count,
+    uint64_t *space, const void *bytes, uint32_t len);
+const char *_xpc_spawnattr_unpack_bytes(const void *buf, size_t limit,
+    uint32_t offset, uint32_t len);
+const char *_xpc_spawnattr_unpack_strings(const void *buf, size_t limit,
+    uint32_t offset, const char **strings, uint32_t count);
+size_t _xpc_spawnattr_binprefs_size(xpc_binprefs_t binprefs);
+void _xpc_spawnattr_binprefs_pack(void *buf, xpc_binprefs_t binprefs,
+    uint32_t *pk, uint64_t *space);
+xpc_binprefs_t _xpc_spawnattr_binprefs_unpack(const void *buf,
+    size_t limit);
+
 #ifdef __cplusplus
 }
 #endif

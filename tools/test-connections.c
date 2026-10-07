@@ -1139,6 +1139,134 @@ main(void)
         free(any);
     }
 
+    /* --- xpc_spawnattr serialization SPI ------------------------------ */
+    {
+        /* Blob model: 400 bytes total, 293 of header, region = [293, 400). */
+        char sblob[400];
+        uint8_t bblob[400], pblob[400];
+        const char *arr[3], *r;
+        xpc_binprefs_t b, e, o;
+        uint32_t n, pk, got;
+        uint64_t space;
+        size_t i;
+
+        memset(sblob, 0xAA, sizeof sblob);
+        memset(bblob, 0xAA, sizeof bblob);
+        memset(pblob, 0xAA, sizeof pblob);
+
+        n = 0;
+        space = 4096;
+        _xpc_spawnattr_pack_string(sblob, &n, &space, "arch");
+        check(n == 5 && space == 4091, "spi: spawnattr pack_string cursor/space");
+        check(memcmp(sblob + 293, "arch", 4) == 0 && sblob[297] == '\0',
+            "spi: spawnattr pack_string bytes at 293+cursor");
+        _xpc_spawnattr_pack_string_fragment(sblob, &n, &space, "frage");
+        check(n == 10 && space == 4086, "spi: spawnattr pack_fragment advances strlen only");
+        check(memcmp(sblob + 298, "frage", 5) == 0,
+            "spi: spawnattr pack_fragment concatenates");
+
+        r = _xpc_spawnattr_unpack_string(sblob, 107, 0);
+        check(r == sblob + 293 && strcmp(r, "arch") == 0,
+            "spi: spawnattr unpack_string first");
+        r = _xpc_spawnattr_unpack_string(sblob, 107, 5);
+        check(r == sblob + 298 && strcmp(r, "frage") == 0,
+            "spi: spawnattr unpack_string second");
+        r = _xpc_spawnattr_unpack_string(sblob, 107, 0);
+        check(r && strnlen(r, 10) == 4,
+            "spi: spawnattr unpack_string finds real NUL");
+        check(_xpc_spawnattr_unpack_string(sblob, 107, 107) == NULL,
+            "spi: spawnattr unpack_string offset == limit");
+        check(_xpc_spawnattr_unpack_string(sblob, 107, 100) == NULL,
+            "spi: spawnattr unpack_string truncated (no NUL in bound)");
+
+        n = 0;
+        space = 4096;
+        _xpc_spawnattr_pack_bytes(bblob, &n, &space, "ABCD", 4);
+        check(n == 4 && space == 4092, "spi: spawnattr pack_bytes cursor/space");
+        check(memcmp(bblob + 293, "ABCD", 4) == 0,
+            "spi: spawnattr pack_bytes bytes at 293+cursor");
+        check(_xpc_spawnattr_unpack_bytes(bblob, 107, 0, 4) == (char *)bblob + 293,
+            "spi: spawnattr unpack_bytes fits");
+        check(_xpc_spawnattr_unpack_bytes(bblob, 107, 0, 8) == (char *)bblob + 293,
+            "spi: spawnattr unpack_bytes large len fits");
+        check(_xpc_spawnattr_unpack_bytes(bblob, 107, 103, 4) == (char *)bblob + 396,
+            "spi: spawnattr unpack_bytes exactly fits at end");
+        check(_xpc_spawnattr_unpack_bytes(bblob, 107, 105, 3) == NULL,
+            "spi: spawnattr unpack_bytes runs past limit");
+
+        n = 0;
+        space = 4096;
+        _xpc_spawnattr_pack_string(sblob, &n, &space, "aa");
+        _xpc_spawnattr_pack_string(sblob, &n, &space, "bb");
+        check(n == 6, "spi: spawnattr two packed strings cursor");
+        arr[0] = "sentinel";
+        r = _xpc_spawnattr_unpack_strings(sblob, 107, 0, arr, 2);
+        check(r == arr[0] && r == sblob + 293 && strcmp(arr[0], "aa") == 0,
+            "spi: spawnattr unpack_strings first");
+        check(arr[1] == sblob + 296 && strcmp(arr[1], "bb") == 0,
+            "spi: spawnattr unpack_strings second");
+        check(_xpc_spawnattr_unpack_strings(sblob, 107, 107, arr, 2) == NULL,
+            "spi: spawnattr unpack_strings offset == limit");
+        check(_xpc_spawnattr_unpack_strings(sblob, 107, 105, arr, 1) == NULL,
+            "spi: spawnattr unpack_strings truncated");
+        arr[0] = "sentinel";
+        check(_xpc_spawnattr_unpack_strings(sblob, 107, 0, arr, 0) == arr[0],
+            "spi: spawnattr unpack_strings count 0 returns strings[0]");
+
+        b = xpc_binprefs_alloc();
+        xpc_binprefs_add(b, 7, 3);
+        xpc_binprefs_add(b, 12, 0);
+        xpc_binprefs_add(b, 17, 2);
+        check(_xpc_spawnattr_binprefs_size(b) == 24,
+            "spi: spawnattr binprefs_size = 8*count");
+
+        pk = 0;
+        space = 4096;
+        _xpc_spawnattr_binprefs_pack(pblob, b, &pk, &space);
+        check(pk == 24 && space == 4072, "spi: spawnattr binprefs_pack pk/space");
+        memcpy(&got, pblob + 68, 4);
+        check(got == 3, "spi: spawnattr binprefs_pack count at +68");
+        memcpy(&got, pblob + 72, 4);
+        check(got == 0, "spi: spawnattr binprefs_pack start offset at +72");
+        o = _xpc_spawnattr_binprefs_unpack(pblob, 107);
+        check(o && xpc_binprefs_equal(b, o), "spi: spawnattr binprefs round trip");
+        for (i = 0; i < 3; i++) {
+            check(xpc_binprefs_cpu_type(o, i) == xpc_binprefs_cpu_type(b, i) &&
+                xpc_binprefs_cpu_subtype(o, i) == xpc_binprefs_cpu_subtype(b, i),
+                "spi: spawnattr binprefs pair values");
+        }
+        free(o);
+
+        pk = 5;
+        space = 4096;
+        _xpc_spawnattr_binprefs_pack(bblob, b, &pk, &space);
+        check(pk == 5 + 24, "spi: spawnattr binprefs_pack after strings");
+        memcpy(&got, bblob + 72, 4);
+        check(got == 5, "spi: spawnattr binprefs_pack start offset carries pk");
+        o = _xpc_spawnattr_binprefs_unpack(bblob, 107);
+        check(o && xpc_binprefs_equal(b, o), "spi: spawnattr binprefs unpacks at +pk");
+
+        memcpy(bblob + 72, &(uint32_t){100}, 4);
+        check(_xpc_spawnattr_binprefs_unpack(bblob, 107) == NULL,
+            "spi: spawnattr binprefs_unpack past limit");
+        memcpy(bblob + 72, &(uint32_t){0}, 4);
+
+        e = xpc_binprefs_alloc();
+        check(_xpc_spawnattr_binprefs_size(e) == 0,
+            "spi: spawnattr binprefs_size empty = 0");
+        pk = 0;
+        space = 4096;
+        _xpc_spawnattr_binprefs_pack(bblob, e, &pk, &space);
+        check(pk == 0 && space == 4096, "spi: spawnattr empty binprefs_pack noop");
+        memcpy(&got, bblob + 68, 4);
+        check(got == 0, "spi: spawnattr empty binprefs count at +68");
+        check(_xpc_spawnattr_binprefs_unpack(bblob, 107) == NULL,
+            "spi: spawnattr empty binprefs_unpack NULL");
+
+        free(e);
+        free(b);
+    }
+
     /* --- xpc_main: service runloop (final, in-process) ------------------ */
 
     /* xpc_main() never returns, so it runs last on the main thread while a
