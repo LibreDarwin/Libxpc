@@ -87,6 +87,7 @@ typedef enum xpc_kind {
     XPC_KIND_FD,
     XPC_KIND_RICH_ERROR,
     XPC_KIND_MACH_RECV,
+    XPC_KIND_PEER_REQUIREMENT,
     XPC_KIND_COUNT,
 } xpc_kind_t;
 
@@ -208,15 +209,107 @@ typedef struct _xpc_error_s {
     int code;
 } xpc_error_t;
 
-typedef struct _xpc_endpoint_s {
+struct _xpc_endpoint_s {
     struct _xpc_object_s hdr;
     mach_port_t port;
-} xpc_endpoint_t;
+};
 
-typedef struct _xpc_connection_s {
+struct _xpc_connection_s {
     struct _xpc_object_s hdr;
-    mach_port_t port;
-} xpc_connection_t;
+
+    /* Identity. */
+    char *name;                     /* service / mach-service / anonymous name */
+    bool listener;                  /* created with
+                                     * XPC_CONNECTION_MACH_SERVICE_LISTENER */
+    bool connected;                 /* a peer send right is established */
+    bool is_anonymous;              /* XPC_CONNECTION_MACH_SERVICE_ANONYMOUS */
+
+    /* Peer (send) right and our local receive right.  The receive right is
+     * owned by the connection and destroyed at teardown.  self_port is a
+     * send-right alias (same task) of recv_right: the name a peer uses to
+     * reach us, and what xpc_dictionary/array_set_connection advertise. */
+    mach_port_t peer_port;          /* send right to the peer, or MACH_PORT_NULL */
+    mach_port_t recv_right;         /* our receive right, or MACH_PORT_NULL for
+                                     * a pure send-capability partner */
+    mach_port_t self_port;          /* MAKE_SEND alias of recv_right, or NULL */
+
+    /* State machine. */
+    int32_t state;                  /* XPC_CONN_STATE_* */
+    _Atomic(int32_t) resume_count;  /* >0: events flow to the handler */
+    bool cancelled;
+    bool has_handler;
+
+    /* Event delivery.  The handler is a copied block; target_queue is
+     * stored opaquely (no libdispatch in this build — a daemon-owned
+     * receive thread serializes delivery instead). */
+    xpc_handler_t handler;
+    xpc_finalizer_t finalizer;
+    void *context;
+    void *target_queue;             /* dispatch_queue_t, stored only */
+
+    /* Peer identity, captured from the first received trailer. */
+    bool have_peer_audit;
+    audit_token_t peer_audit;
+
+    /* Per-connection serialization: protects state, resume_count, and the
+     * receive thread's shutdown flag.  Messages received while suspended
+     * queue in the kernel on recv_right and are delivered on the next
+     * resume, so no user-space inbound queue is needed. */
+    pthread_mutex_t lock;
+    pthread_cond_t cond;
+
+    /* Receive thread driving the event handler. */
+    pthread_t rx_thread;
+    bool rx_thread_started;
+    bool shutdown;
+
+    /* Invocation of the event handler. */
+    xpc_object_t inbound_error;     /* XPC_ERROR_* to deliver, or NULL */
+
+    /* Stored peer requirements (xpc_connection_set_peer_*_requirement). */
+    char *peer_code_signing_requirement;
+    xpc_peer_requirement_t peer_requirement;
+    bool invalidate_on_requirement_failure;
+
+    /* copy_invalidation_reason. */
+    char *invalidation_reason;
+
+    /* Messages sent before the peer send right is established.  Flushed at
+     * connect; each entry is retained until flushed.
+     * Outstanding async-reply receive ports, one per in-flight
+     * xpc_connection_send_message_with_reply(), are destroyed at cancel to
+     * unblock their waiter threads.  Both arrays are guarded by lock. */
+    xpc_object_t *pending;
+    size_t pending_count, pending_cap;
+    mach_port_t *reply_ports;
+    size_t reply_count, reply_cap;
+};
+
+struct _xpc_session_s {
+    struct _xpc_object_s hdr;
+    xpc_connection_t connection;    /* backing connection, retained */
+    bool activated;
+    bool cancelled;
+    /* Session-standard handlers, copied when set.  At activate() they are
+     * adapted onto the backing connection: message events reach
+     * incoming_handler, error/lifecycle events reach cancel_handler as a
+     * rich error. */
+    xpc_session_incoming_message_handler_t incoming_handler;
+    xpc_session_cancel_handler_t cancel_handler;
+};
+
+struct _xpc_rich_error_s {
+    struct _xpc_object_s hdr;
+    char *desc;         /* human-readable failure message */
+    bool can_retry;     /* xpc_rich_error_can_retry() */
+};
+
+struct _xpc_peer_requirement_s {
+    struct _xpc_object_s hdr;
+    uint32_t kind;      /* XPC_PEER_REQ_* */
+    char *text;         /* requirement text (code-signing, team id, ...);
+                         * NULL for the platform-identity flavor */
+};
 
 typedef struct _xpc_fd_s {
     struct _xpc_object_s hdr;
@@ -247,6 +340,7 @@ extern const struct _xpc_type_s _xpc_type_listener;
 extern const struct _xpc_type_s _xpc_type_fd;
 extern const struct _xpc_type_s _xpc_type_rich_error;
 extern const struct _xpc_type_s _xpc_type_mach_recv;
+extern const struct _xpc_type_s _xpc_type_peer_requirement;
 
 extern xpc_object_t _xpc_bool_true;
 extern xpc_object_t _xpc_bool_false;
@@ -309,6 +403,46 @@ xpc_object_t xpc_shmem_create_owned(mach_port_t port, uint64_t size);
  * right and forget its same-task origin record. */
 void xpc_shmem_dispose(xpc_shmem_t *s);
 mach_port_t xpc_shmem_get_port(xpc_object_t obj);
+
+#pragma mark - Connection subsystem (xpc_connection.c, xpc_session.c)
+
+/* Error singletons.  Public header xpc/connection.h declares the same
+ * globals as const struct _xpc_dictionary_s; definitions live in
+ * object/xpc_errors.c and carry refs == 0 as an immortal sentinel so
+ * xpc_retain()/xpc_release() never touch them. */
+extern const struct _xpc_dictionary_s _xpc_error_connection_interrupted;
+extern const struct _xpc_dictionary_s _xpc_error_connection_invalid;
+extern const struct _xpc_dictionary_s _xpc_error_termination_imminent;
+extern const struct _xpc_dictionary_s _xpc_error_peer_code_signing_requirement;
+
+/* Connection state machine. */
+enum {
+    XPC_CONN_STATE_INACTIVE = 0,
+    XPC_CONN_STATE_ACTIVE,
+    XPC_CONN_STATE_CANCELLED,
+};
+
+xpc_connection_t xpc_connection_create_with_port(mach_port_t port,
+    xpc_handler_t handler, void *context, xpc_finalizer_t finalizer);
+void xpc_connection_register_mach_service(const char *name, mach_port_t port);
+void xpc_connection_dispose(xpc_connection_t conn);
+
+/* Rich error construction (object/xpc_rich_error.c). */
+xpc_rich_error_t xpc_rich_error_create(const char *desc, bool can_retry);
+
+/* Peer-requirement construction (object/xpc_peer_requirement.c).  The
+ * *_text flavors take a preallocated copy; ownership transfers. */
+typedef enum xpc_peer_req_kind {
+    XPC_PEER_REQ_ENTITLEMENT_EXISTS = 0,
+    XPC_PEER_REQ_ENTITLEMENT_VALUE,
+    XPC_PEER_REQ_TEAM_IDENTITY,
+    XPC_PEER_REQ_PLATFORM_IDENTITY,
+    XPC_PEER_REQ_LWCR,
+    XPC_PEER_REQ_CODE_SIGNING,
+} xpc_peer_req_kind_t;
+
+struct _xpc_peer_requirement_s *xpc_peer_requirement_alloc(
+    xpc_peer_req_kind_t kind, char *text);
 
 #pragma mark - Serialization (xpc_serialize.c)
 

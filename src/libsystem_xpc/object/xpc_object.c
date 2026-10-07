@@ -38,6 +38,8 @@
 
 #include "xpc_internal.h"
 
+#include <Block.h>
+
 #pragma mark - Lifecycle
 
 xpc_object_t
@@ -60,6 +62,11 @@ xpc_object_t
 xpc_retain(xpc_object_t obj)
 {
     if (!obj) return NULL;
+    /* Immortal globals (the XPC_ERROR_* sentinels) carry refs == 0; they
+     * are never retained, released, or freed. */
+    if (atomic_load_explicit(&obj->refs, memory_order_relaxed) == 0) {
+        return obj;
+    }
     atomic_fetch_add_explicit(&obj->refs, 1, memory_order_relaxed);
     return obj;
 }
@@ -68,6 +75,10 @@ void
 xpc_release(xpc_object_t obj)
 {
     if (!obj) return;
+    /* Immortal globals carry refs == 0; never underflow them. */
+    if (atomic_load_explicit(&obj->refs, memory_order_relaxed) == 0) {
+        return;
+    }
     uint64_t old = atomic_fetch_sub_explicit(&obj->refs, 1,
         memory_order_acq_rel);
     if (old != 1) return;   /* not the last reference */
@@ -145,9 +156,29 @@ xpc_release(xpc_object_t obj)
         break;
     }
     case XPC_KIND_ENDPOINT:
-    case XPC_KIND_CONNECTION:
         /* mach ports are managed by the kernel; no heap payload. */
         break;
+    case XPC_KIND_CONNECTION:
+        xpc_connection_dispose((xpc_connection_t)(void *)obj);
+        break;
+    case XPC_KIND_SESSION: {
+        struct _xpc_session_s *s = (struct _xpc_session_s *)(void *)obj;
+        if (s->connection) xpc_release((xpc_object_t)s->connection);
+        if (s->incoming_handler) Block_release(s->incoming_handler);
+        if (s->cancel_handler) Block_release(s->cancel_handler);
+        break;
+    }
+    case XPC_KIND_RICH_ERROR: {
+        struct _xpc_rich_error_s *r = (struct _xpc_rich_error_s *)(void *)obj;
+        free(r->desc);
+        break;
+    }
+    case XPC_KIND_PEER_REQUIREMENT: {
+        struct _xpc_peer_requirement_s *r =
+            (struct _xpc_peer_requirement_s *)(void *)obj;
+        free(r->text);
+        break;
+    }
     default:
         break;
     }

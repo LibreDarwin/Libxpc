@@ -30,64 +30,24 @@
  */
 
 /*
- * xpc_extra.c — convenience APIs for endpoint, connection, activity,
- * session, and listener types in the reimplemented XPC framework.
+ * xpc_extra.c — convenience APIs for the endpoint, activity, and listener
+ * types, the typed dictionary accessors declared in xpc.h, and the reply
+ * context machinery.
  *
- * This file also supplies the typed accessors declared in xpc.h.
+ * The connection and session types live in xpc_connection.c and
+ * xpc_session.c; only endpoint-shaped helpers that those files build on
+ * remain here.
  */
 
 #include "xpc_internal.h"
-
-#pragma mark - Connection
-
-xpc_object_t
-xpc_connection_create_from_endpoint(xpc_object_t endpoint)
-{
-    if (!XPC_OBJECT_CHECK(endpoint, &_xpc_type_endpoint)) return NULL;
-    xpc_connection_t *c = XPC_CAST(xpc_connection_t,
-        xpc_object_alloc(&_xpc_type_connection, sizeof(*c)));
-    if (c) c->port = XPC_CAST(xpc_endpoint_t, endpoint)->port;
-    return (xpc_object_t)c;
-}
-
-xpc_object_t
-xpc_connection_create(mach_port_t port)
-{
-    xpc_connection_t *c = XPC_CAST(xpc_connection_t,
-        xpc_object_alloc(&_xpc_type_connection, sizeof(*c)));
-    if (c) c->port = port;
-    return (xpc_object_t)c;
-}
-
-mach_port_t
-xpc_connection_get_port(xpc_object_t connection)
-{
-    if (!XPC_OBJECT_CHECK(connection, &_xpc_type_connection))
-        return MACH_PORT_NULL;
-    return XPC_CAST(xpc_connection_t, connection)->port;
-}
-
-void
-xpc_connection_set_incoming_message_handler(xpc_object_t connection,
-    xpc_handler_t handler)
-{
-    (void)connection; (void)handler;
-}
-
-void
-xpc_connection_resume(xpc_object_t connection) { (void)connection; }
-void
-xpc_connection_suspend(xpc_object_t connection) { (void)connection; }
-void
-xpc_connection_cancel(xpc_object_t connection) { (void)connection; }
 
 #pragma mark - Endpoint
 
 xpc_object_t
 xpc_endpoint_create(mach_port_t port)
 {
-    xpc_endpoint_t *e = XPC_CAST(xpc_endpoint_t,
-        xpc_object_alloc(&_xpc_type_endpoint, sizeof(*e)));
+    struct _xpc_endpoint_s *e = (struct _xpc_endpoint_s *)(void *)
+        xpc_object_alloc(&_xpc_type_endpoint, sizeof(*e));
     if (e) e->port = port;
     return (xpc_object_t)e;
 }
@@ -97,7 +57,7 @@ xpc_endpoint_get_port(xpc_object_t endpoint)
 {
     if (!XPC_OBJECT_CHECK(endpoint, &_xpc_type_endpoint))
         return MACH_PORT_NULL;
-    return XPC_CAST(xpc_endpoint_t, endpoint)->port;
+    return ((struct _xpc_endpoint_s *)(void *)endpoint)->port;
 }
 
 xpc_object_t
@@ -107,7 +67,34 @@ xpc_endpoint_copy_listener_port(xpc_object_t endpoint)
     return NULL;
 }
 
-#pragma mark - Activity
+#pragma mark - Connection convenience built on the endpoint type
+
+void
+xpc_dictionary_set_connection(xpc_object_t dict, const char *key,
+    xpc_object_t connection)
+{
+    /* Stores an endpoint holding the connection's advertised port; the
+     * dictionary does not retain the connection itself (Apple
+     * xpc_dictionary_set_connection(3)). */
+    if (!XPC_OBJECT_CHECK(connection, &_xpc_type_connection)) return;
+    struct _xpc_connection_s *c = (struct _xpc_connection_s *)(void *)connection;
+    xpc_object_t ep = xpc_endpoint_create(c->self_port);
+    if (!ep) return;
+    xpc_dictionary_set_value(dict, key, ep);
+    xpc_release(ep);
+}
+
+xpc_object_t
+xpc_dictionary_create_connection(xpc_object_t dict, const char *key)
+{
+    xpc_object_t v = xpc_dictionary_get_value(dict, key);
+    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_endpoint)) return NULL;
+    xpc_connection_t conn =
+        xpc_connection_create_from_endpoint((xpc_endpoint_t)(void *)v);
+    return (xpc_object_t)(void *)conn;
+}
+
+#pragma mark - Activity (out of Slice-C scope: no-op shells)
 
 xpc_object_t
 xpc_activity_create(xpc_object_t connection)
@@ -130,30 +117,7 @@ xpc_activity_suspend(xpc_object_t activity) { (void)activity; }
 void
 xpc_activity_cancel(xpc_object_t activity) { (void)activity; }
 
-#pragma mark - Session
-
-xpc_object_t
-xpc_session_create(xpc_object_t endpoint)
-{
-    (void)endpoint;
-    return xpc_null_create();
-}
-
-void
-xpc_session_set_incoming_message_handler(xpc_object_t session,
-    xpc_handler_t handler)
-{
-    (void)session; (void)handler;
-}
-
-void
-xpc_session_resume(xpc_object_t session) { (void)session; }
-void
-xpc_session_suspend(xpc_object_t session) { (void)session; }
-void
-xpc_session_cancel(xpc_object_t session) { (void)session; }
-
-#pragma mark - Listener
+#pragma mark - Listener (out of Slice-C scope: endpoint-shaped shells)
 
 xpc_object_t
 xpc_listener_create(mach_port_t port)
@@ -293,28 +257,6 @@ void
 xpc_dictionary_remove_value(xpc_object_t object, const char *key)
 {
     xpc_dictionary_set_value(object, key, NULL);
-}
-
-void
-xpc_dictionary_set_connection(xpc_object_t dict, const char *key,
-    xpc_object_t connection)
-{
-    /* Stores an endpoint holding the connection's port; the dictionary does
-     * not retain the connection itself (Apple xpc_dictionary_set_connection(3)). */
-    if (!XPC_OBJECT_CHECK(connection, &_xpc_type_connection)) return;
-    xpc_object_t ep = xpc_endpoint_create(
-        XPC_CAST(xpc_connection_t, connection)->port);
-    if (!ep) return;
-    xpc_dictionary_set_value(dict, key, ep);
-    xpc_release(ep);
-}
-
-xpc_object_t
-xpc_dictionary_create_connection(xpc_object_t dict, const char *key)
-{
-    xpc_object_t v = xpc_dictionary_get_value(dict, key);
-    if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_endpoint)) return NULL;
-    return xpc_connection_create_from_endpoint(v);
 }
 
 #pragma mark - Reply context (xpc_dictionary_create_reply / send_reply)

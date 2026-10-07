@@ -328,8 +328,8 @@ xpc_array_set_connection(xpc_object_t xarray, size_t index,
     /* Stores an endpoint holding the connection's port; the array does not
      * retain the connection itself (Apple xpc_array_set_connection(3)). */
     if (!XPC_OBJECT_CHECK(connection, &_xpc_type_connection)) return;
-    xpc_object_t obj = xpc_endpoint_create(
-        XPC_CAST(xpc_connection_t, connection)->port);
+    struct _xpc_connection_s *cc = (struct _xpc_connection_s *)(void *)connection;
+    xpc_object_t obj = xpc_endpoint_create(cc->self_port);
     if (!obj) return;
     xpc_array_set_scalar(xarray, index, obj);
 }
@@ -339,5 +339,7 @@ xpc_array_create_connection(xpc_object_t xarray, size_t index)
 {
     xpc_object_t v = xpc_array_get_value(xarray, index);
     if (!v || !XPC_OBJECT_CHECK(v, &_xpc_type_endpoint)) return NULL;
-    return xpc_connection_create_from_endpoint(v);
+    xpc_connection_t conn =
+        xpc_connection_create_from_endpoint((xpc_endpoint_t)(void *)v);
+    return (xpc_object_t)(void *)conn;
 }

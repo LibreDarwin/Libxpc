@@ -447,7 +447,13 @@ xpc_pipe_try_receive(mach_port_t *port_set_inout, xpc_object_t *request_out,
      * the port in our set that caught the message. */
     if (recv_port_out) *recv_port_out = msg->msgh_local_port;
 
-    if (msg->msgh_id & (XPC_PIPE_ID_ROUTINE | XPC_PIPE_ID_SIMPLEROUTINE)) {
+    if (msg->msgh_id & (XPC_PIPE_ID_ROUTINE | XPC_PIPE_ID_SIMPLEROUTINE |
+            XPC_PIPE_ID_REPLY)) {
+        /* Requests expect a reply; replies do not.  The connection layer
+         * receives both (its rx loop plus the sync/async with-reply paths
+         * share this primitive), so deserialize either, but only attach a
+         * reply capability to actual requests. */
+        bool is_request = !(msg->msgh_id & XPC_PIPE_ID_REPLY);
         xpc_pipe_reply_t pl;
         if (pipe_reply_payload(msg, &pl) != KERN_SUCCESS) {
             if (getenv("XPC_DEBUG")) {
@@ -476,7 +482,7 @@ xpc_pipe_try_receive(mach_port_t *port_set_inout, xpc_object_t *request_out,
          * send/send-once right to answer on (remote-bit disposition in the
          * MOVE_SEND..MAKE_SEND_ONCE span). */
         uint8_t rem = MACH_MSGH_BITS_REMOTE(msg->msgh_bits);
-        if (MACH_PORT_VALID(msg->msgh_remote_port) &&
+        if (is_request && MACH_PORT_VALID(msg->msgh_remote_port) &&
             rem >= MACH_MSG_TYPE_MOVE_SEND &&
             rem <= MACH_MSG_TYPE_MAKE_SEND_ONCE) {
             xpc_dictionary_attach_reply_context(dict, msg->msgh_remote_port,

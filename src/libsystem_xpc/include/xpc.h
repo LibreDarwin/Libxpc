@@ -52,6 +52,12 @@
 #include <time.h>
 #include <uuid/uuid.h>
 #include <mach/mach.h>
+#if __has_include(<bsm/audit.h>)
+#include <bsm/audit.h>
+#endif
+#if __has_include(<bsm/libbsm.h>)
+#include <bsm/libbsm.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,6 +85,27 @@ typedef const struct _xpc_type_s *xpc_type_t;
  */
 typedef void (^xpc_handler_t)(xpc_object_t object);
 typedef void (*xpc_finalizer_t)(void *context);
+
+/* Object typedefs matching the public SDK headers.  Each is an opaque
+ * pointer to an internal struct tag; the structural definitions live in
+ * xpc_internal.h (public consumers see only the incomplete tag). */
+typedef struct _xpc_endpoint_s *xpc_endpoint_t;
+typedef struct _xpc_connection_s *xpc_connection_t;
+typedef struct _xpc_session_s *xpc_session_t;
+typedef struct _xpc_rich_error_s *xpc_rich_error_t;
+typedef struct _xpc_peer_requirement_s *xpc_peer_requirement_t;
+
+/* libdispatch is not linked into this hermetic xpc, but the SDK headers
+ * are on the include path for consumers: use the real dispatch types when
+ * they are available (avoiding a typedef clash), otherwise fall back to
+ * opaque declarations.  Queues are stored opaquely by the connection layer
+ * and blocks are delivered on a per-connection receive thread. */
+#if __has_include(<dispatch/dispatch.h>)
+#include <dispatch/dispatch.h>
+#else
+typedef void *dispatch_queue_t;
+typedef void (^dispatch_block_t)(void);
+#endif
 
 #pragma mark - XPC object lifecycle
 
@@ -112,17 +139,112 @@ extern const struct _xpc_type_s _xpc_type_activity;
 extern const struct _xpc_type_s _xpc_type_session;
 extern const struct _xpc_type_s _xpc_type_listener;
 extern const struct _xpc_type_s _xpc_type_fd;
+extern const struct _xpc_type_s _xpc_type_rich_error;
+extern const struct _xpc_type_s _xpc_type_mach_recv;
+extern const struct _xpc_type_s _xpc_type_peer_requirement;
 
 #pragma mark - Connection
 
-xpc_object_t xpc_connection_create_from_endpoint(xpc_object_t endpoint);
-xpc_object_t xpc_connection_create(mach_port_t port);
-mach_port_t xpc_connection_get_port(xpc_object_t connection);
-void xpc_connection_set_incoming_message_handler(xpc_object_t connection,
+extern const struct _xpc_dictionary_s _xpc_error_connection_interrupted;
+extern const struct _xpc_dictionary_s _xpc_error_connection_invalid;
+extern const struct _xpc_dictionary_s _xpc_error_termination_imminent;
+extern const struct _xpc_dictionary_s _xpc_error_peer_code_signing_requirement;
+
+#define XPC_ERROR_CONNECTION_INTERRUPTED \
+    ((xpc_object_t)&_xpc_error_connection_interrupted)
+#define XPC_ERROR_CONNECTION_INVALID \
+    ((xpc_object_t)&_xpc_error_connection_invalid)
+#define XPC_ERROR_TERMINATION_IMMINENT \
+    ((xpc_object_t)&_xpc_error_termination_imminent)
+#define XPC_ERROR_PEER_CODE_SIGNING_REQUIREMENT \
+    ((xpc_object_t)&_xpc_error_peer_code_signing_requirement)
+
+#define XPC_CONNECTION_MACH_SERVICE_LISTENER (1 << 0)
+#define XPC_CONNECTION_MACH_SERVICE_PRIVILEGED (1 << 1)
+#define XPC_CONNECTION_MACH_SERVICE_ANONYMOUS (1 << 2)
+
+typedef uint64_t xpc_session_create_flags_t;
+
+#define XPC_SESSION_CREATE_NONE (0)
+#define XPC_SESSION_CREATE_INACTIVE (1 << 0)
+#define XPC_SESSION_CREATE_MACH_PRIVILEGED (1 << 1)
+
+xpc_connection_t xpc_connection_create(const char *name,
+    dispatch_queue_t targetq);
+xpc_connection_t xpc_connection_create_mach_service(const char *name,
+    dispatch_queue_t targetq, uint64_t flags);
+xpc_connection_t xpc_connection_create_from_endpoint(xpc_endpoint_t endpoint);
+void xpc_connection_set_target_queue(xpc_connection_t connection,
+    dispatch_queue_t targetq);
+void xpc_connection_set_event_handler(xpc_connection_t connection,
     xpc_handler_t handler);
-void xpc_connection_resume(xpc_object_t connection);
-void xpc_connection_suspend(xpc_object_t connection);
-void xpc_connection_cancel(xpc_object_t connection);
+void xpc_connection_activate(xpc_connection_t connection);
+void xpc_connection_suspend(xpc_connection_t connection);
+void xpc_connection_resume(xpc_connection_t connection);
+void xpc_connection_send_message(xpc_connection_t connection,
+    xpc_object_t message);
+void xpc_connection_send_barrier(xpc_connection_t connection,
+    dispatch_block_t barrier);
+void xpc_connection_send_message_with_reply(xpc_connection_t connection,
+    xpc_object_t message, dispatch_queue_t replyq, xpc_handler_t handler);
+xpc_object_t xpc_connection_send_message_with_reply_sync(
+    xpc_connection_t connection, xpc_object_t message);
+void xpc_connection_cancel(xpc_connection_t connection);
+const char *xpc_connection_get_name(xpc_connection_t connection);
+uid_t xpc_connection_get_euid(xpc_connection_t connection);
+gid_t xpc_connection_get_egid(xpc_connection_t connection);
+pid_t xpc_connection_get_pid(xpc_connection_t connection);
+au_asid_t xpc_connection_get_asid(xpc_connection_t connection);
+void xpc_connection_set_context(xpc_connection_t connection,
+    void *context);
+void *xpc_connection_get_context(xpc_connection_t connection);
+void xpc_connection_set_finalizer_f(xpc_connection_t connection,
+    xpc_finalizer_t finalizer);
+int xpc_connection_set_peer_code_signing_requirement(
+    xpc_connection_t connection, const char *requirement);
+int xpc_connection_set_peer_entitlement_exists_requirement(
+    xpc_connection_t connection, const char *entitlement);
+int xpc_connection_set_peer_entitlement_matches_value_requirement(
+    xpc_connection_t connection, const char *entitlement, xpc_object_t value);
+int xpc_connection_set_peer_team_identity_requirement(
+    xpc_connection_t connection, const char *signing_identifier);
+int xpc_connection_set_peer_platform_identity_requirement(
+    xpc_connection_t connection, const char *signing_identifier);
+int xpc_connection_set_peer_lightweight_code_requirement(
+    xpc_connection_t connection, xpc_object_t lwcr);
+void xpc_connection_set_peer_requirement(xpc_connection_t connection,
+    xpc_peer_requirement_t peer_requirement);
+char *xpc_connection_copy_invalidation_reason(xpc_connection_t connection);
+
+/* Internal: port-based construction (the flat header's pre-Slice-C form),
+ * kept for the endpoint path and same-task wiring. */
+xpc_connection_t xpc_connection_create_with_port(mach_port_t port,
+    xpc_handler_t handler, void *context, xpc_finalizer_t finalizer);
+void xpc_connection_register_mach_service(const char *name, mach_port_t port);
+mach_port_t xpc_connection_get_port(xpc_object_t connection);
+
+#pragma mark - Rich error
+
+xpc_rich_error_t xpc_rich_error_create(const char *desc, bool can_retry);
+
+int xpc_rich_error_can_retry(xpc_object_t error);
+char *xpc_rich_error_copy_description(xpc_object_t error);
+
+#pragma mark - Peer requirement
+
+xpc_peer_requirement_t xpc_peer_requirement_create_entitlement_exists(
+    const char *entitlement, xpc_rich_error_t *error_out);
+xpc_peer_requirement_t xpc_peer_requirement_create_entitlement_matches_value(
+    const char *entitlement, xpc_object_t value, xpc_rich_error_t *error_out);
+xpc_peer_requirement_t xpc_peer_requirement_create_team_identity(
+    const char *signing_identifier, xpc_rich_error_t *error_out);
+xpc_peer_requirement_t xpc_peer_requirement_create_platform_identity(
+    const char *signing_identifier, xpc_rich_error_t *error_out);
+xpc_peer_requirement_t xpc_peer_requirement_create_lwcr(xpc_object_t lwcr,
+    xpc_rich_error_t *error_out);
+bool xpc_peer_requirement_match_received_message(
+    xpc_peer_requirement_t req, xpc_object_t message,
+    xpc_rich_error_t *error_out);
 
 #pragma mark - Endpoint
 
@@ -140,12 +262,37 @@ void xpc_activity_cancel(xpc_object_t activity);
 
 #pragma mark - Session
 
-xpc_object_t xpc_session_create(xpc_object_t endpoint);
-void xpc_session_set_incoming_message_handler(xpc_object_t session,
-    xpc_handler_t handler);
-void xpc_session_resume(xpc_object_t session);
-void xpc_session_suspend(xpc_object_t session);
-void xpc_session_cancel(xpc_object_t session);
+typedef void (^xpc_session_incoming_message_handler_t)(xpc_object_t message);
+typedef void (^xpc_session_cancel_handler_t)(xpc_rich_error_t error);
+typedef void (^xpc_session_reply_handler_t)(xpc_object_t reply,
+    xpc_rich_error_t error);
+
+xpc_session_t xpc_session_create_xpc_service(const char *name,
+    dispatch_queue_t target_queue, xpc_session_create_flags_t flags,
+    xpc_rich_error_t *error_out);
+xpc_session_t xpc_session_create_mach_service(const char *mach_service,
+    dispatch_queue_t target_queue, xpc_session_create_flags_t flags,
+    xpc_rich_error_t *error_out);
+void xpc_session_set_incoming_message_handler(xpc_session_t session,
+    xpc_session_incoming_message_handler_t handler);
+void xpc_session_set_cancel_handler(xpc_session_t session,
+    xpc_session_cancel_handler_t cancel_handler);
+void xpc_session_set_target_queue(xpc_session_t session,
+    dispatch_queue_t target_queue);
+bool xpc_session_activate(xpc_session_t session,
+    xpc_rich_error_t *error_out);
+void xpc_session_cancel(xpc_session_t session);
+char *xpc_session_copy_description(xpc_session_t session);
+xpc_rich_error_t xpc_session_send_message(xpc_session_t session,
+    xpc_object_t message);
+xpc_object_t xpc_session_send_message_with_reply_sync(xpc_session_t session,
+    xpc_object_t message, xpc_rich_error_t *error_out);
+void xpc_session_send_message_with_reply_async(xpc_session_t session,
+    xpc_object_t message, xpc_session_reply_handler_t reply_handler);
+int xpc_session_set_peer_code_signing_requirement(xpc_session_t session,
+    const char *requirement);
+void xpc_session_set_peer_requirement(xpc_session_t session,
+    xpc_peer_requirement_t requirement);
 
 #pragma mark - Listener
 

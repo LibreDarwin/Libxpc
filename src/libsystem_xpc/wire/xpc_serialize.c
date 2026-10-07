@@ -274,7 +274,8 @@ xpc_serialize_value(xpc_wbuf_t *w, xpc_object_t obj, xpc_porttab_t *pt)
              * Captured probe11 with_ep message: `ep` → 00 20 01 00
              * (tag 0x12000, slot 0) with a single port descriptor. */
             uint32_t idx = pt->nports;
-            if (!porttab_add(pt, XPC_CAST(xpc_endpoint_t, obj)->port,
+            if (!porttab_add(pt,
+                    ((struct _xpc_endpoint_s *)(void *)obj)->port,
                     MACH_MSG_TYPE_COPY_SEND))
                 break;
             if (idx > 0xff) break;  /* table slots are 8-bit encoded */

@@ -313,6 +313,14 @@ ${TESTCTL}: src/launchctl/launchctl.c src/libsystem_xpc/include/xpc.h ${LIBS}
 	${CC} ${CFLAGS} src/launchctl/launchctl.c -L${RELEASE} -lsystem_xpc \
 	    -Wl,-rpath,${RELEASE} -o $@
 
+# The connection/session duplex round-trip test: one process plays both the
+# listener and the client, so it needs no launchd machinery.
+TESTCONN := ${TESTDIR}/test-connections
+${TESTCONN}: tools/test-connections.c src/libsystem_xpc/include/xpc.h ${LIBS}
+	@mkdir -p ${.TARGET:H}
+	${CC} ${CFLAGS} tools/test-connections.c -L${RELEASE} -lsystem_xpc \
+	    -Wl,-rpath,${RELEASE} -o $@
+
 ${LAUNCHD}: src/launchd/launchd_stub.c src/launchctl/launchctl.c \
     src/libsystem_xpc/include/xpc.h ${LIBS} ${TESTCTL}
 	@mkdir -p ${.TARGET:H}
@@ -339,8 +347,9 @@ ${FRAMEWORK}: ${LIBS} ${RELEASE}
 
 release: ${FRAMEWORK}
 
-test: all ${LAUNCHD} ${TESTCTL}
+test: all ${LAUNCHD} ${TESTCTL} ${TESTCONN}
 	sh tools/e2e-launchd.sh
+	${TESTCONN}
 
 clean:
 	${RM} ${BUILD}

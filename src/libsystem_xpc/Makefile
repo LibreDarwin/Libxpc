@@ -36,8 +36,8 @@ CFLAGS	:= -std=c11 -fblocks -g -O0 -Wall -Wextra -Werror \
 # callers in liblaunch/libvproc still link against ours; only the export is
 # suppressed.
 LDFLAGS	:= -dynamiclib -install_name @rpath/libsystem_xpc.dylib \
-		-L${SDKROOT}/usr/lib/system \
-		-Wl,-unexported_symbol,_vproc_swap_integer
+		-L${SDKROOT}/usr/lib/system -L${SDKROOT}/usr/lib \
+		-Wl,-unexported_symbol,_vproc_swap_integer -lbsm
 
 # Apple's link graph for libsystem_xpc: the siblings that still exist as
 # separate /usr/lib/system install names on this SDK generation.
