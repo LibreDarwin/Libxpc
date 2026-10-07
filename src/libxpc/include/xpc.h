@@ -578,6 +578,18 @@ void xpc_dictionary_set_mach_recv(xpc_object_t object, const char *key,
 xpc_object_t xpc_mach_send_create(mach_port_t port);
 mach_port_t xpc_mach_send_get_port(xpc_object_t object);
 
+#pragma mark - Transactions
+
+/*
+ * xpc_transaction_begin()/xpc_transaction_end() bracket an XPC service's
+ * activity so the runtime can keep the service alive while work is
+ * outstanding and consider it idle once the count drains to zero.  The two
+ * must balance; ending a transaction that was never begun (or overflowing
+ * the count) is a caller error and faults, matching Apple's libxpc.
+ */
+void xpc_transaction_begin(void);
+void xpc_transaction_end(void);
+
 #ifdef __cplusplus
 }
 #endif

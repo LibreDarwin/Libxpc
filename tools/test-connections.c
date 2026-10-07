@@ -881,6 +881,16 @@ main(void)
     xpc_release((xpc_object_t)elig_act);
     xpc_release((xpc_object_t)re_act);
 
+    /* --- transactions -------------------------------------------------- */
+
+    /* begin()/end() must link and balance without faulting (the underflow
+     * path aborts, so surviving these calls is the assertion). */
+    xpc_transaction_begin();
+    xpc_transaction_begin();
+    xpc_transaction_end();
+    xpc_transaction_end();
+    check(1, "transaction: begin/end balance");
+
     /* --- cancel semantics ---------------------------------------------- */
 
     char *reason = xpc_connection_copy_invalidation_reason(client);
