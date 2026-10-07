@@ -1,0 +1,175 @@
+--- a/support/launchctl.c	2026-10-07 00:10:57
++++ b/support/launchctl.c	2026-10-06 17:34:16
+@@ -1,3 +1,10 @@
++#ifndef GEN_USAGE
++#define GEN_USAGE(name, usage) \
++static int name(int argc, char *const argv[]) { \
++	fprintf(stderr, "usage: %s\n", usage); \
++	return EX_USAGE; \
++}
++#endif
+ /*
+  * Copyright (c) 2005-2011 Apple Inc. All rights reserved.
+  *
+@@ -233,6 +240,29 @@
+ static int help_cmd(int argc, char *const argv[]);
+ static int status_cmd(int argc, char *const argv[]);
+ static int attach_cmd(int argc, char *const argv[]);
++static int kickstart_cmd(int argc, char *const argv[]);
++static int kill_cmd(int argc, char *const argv[]);
++static int blame_cmd(int argc, char *const argv[]);
++static int bootout_cmd(int argc, char *const argv[]);
++static int enable_disable_cmd(int argc, char *const argv[]);
++static int print_cmd(int argc, char *const argv[]);
++static int print_cache_cmd(int argc, char *const argv[]);
++static int print_disabled_cmd(int argc, char *const argv[]);
++static int print_token_cmd(int argc, char *const argv[]);
++static int plist_cmd(int argc, char *const argv[]);
++static int procinfo_cmd(int argc, char *const argv[]);
++static int hostinfo_cmd(int argc, char *const argv[]);
++static int examine_cmd(int argc, char *const argv[]);
++static int resolveport_cmd(int argc, char *const argv[]);
++static int error_cmd(int argc, char *const argv[]);
++static int config_cmd(int argc, char *const argv[]);
++static int dump_xsc_cmd(int argc, char *const argv[]);
++static int dumpjpcategory_cmd(int argc, char *const argv[]);
++static int variant_cmd(int argc, char *const argv[]);
++static int reboot_cmd(int argc, char *const argv[]);
++static int reload_atf_cmd(int argc, char *const argv[]);
++static int bootshell_cmd(int argc, char *const argv[]);
++static int dumpstate_cmd(int argc, char *const argv[]);
+ static int version_cmd(int argc, char *const argv[]);
+ 
+ static const struct {
+@@ -252,6 +282,30 @@
+ 	{ "status",			status_cmd,				"Query the launchd instance (housekeeping probe)." },
+ 	{ "version",			version_cmd,				"Print the bootstrapper version." },
+ 	{ "attach",			attach_cmd,				"Attach to a service's process for debugging" },
++	{ "kickstart",		kickstart_cmd,			"Forces an existing service to start" },
++	{ "kill",			kill_cmd,				"Sends a signal to a service" },
++	{ "blame",			blame_cmd,				"Describes what is preventing a service from running" },
++	{ "bootout",		bootout_cmd,			"Tears down a domain or removes a service" },
++	{ "enable",			enable_disable_cmd,		"Enables an existing service" },
++	{ "disable",			enable_disable_cmd,		"Disables an existing service" },
++	{ "print",			print_cmd,				"Print the state of a service or domain" },
++	{ "print-cache",	print_cache_cmd,		"Print launchd's cache" },
++	{ "print-disabled",	print_disabled_cmd,		"Print disabled services" },
++	{ "print-token",	print_token_cmd,		"Print a token" },
++	{ "plist",			plist_cmd,				"Print plist representation" },
++	{ "procinfo",		procinfo_cmd,			"Print process info" },
++	{ "hostinfo",		hostinfo_cmd,			"Print host info" },
++	{ "examine",		examine_cmd,			"Examine service" },
++	{ "resolveport",	resolveport_cmd,		"Resolve a port" },
++	{ "error",			error_cmd,				"Print error description" },
++	{ "config",			config_cmd,				"Get/set configuration" },
++	{ "dump-xsc",		dump_xsc_cmd,			"Dump XSC" },
++	{ "dumpjpcategory",	dumpjpcategory_cmd,		"Dump job category" },
++	{ "dumpstate",		dumpstate_cmd,			"Dump launchd state" },
++	{ "variant",		variant_cmd,			"Print variant info" },
++	{ "reboot",			reboot_cmd,				"Reboot system" },
++	{ "reload-atf",		reload_atf_cmd,			"Reload ATF" },
++	{ "bootshell",		bootshell_cmd,			"Boot into single-user shell" },
+ 	{ "setenv",			setenv_cmd,				"Set an environmental variable in launchd" },
+ 	{ "unsetenv",		unsetenv_cmd,			"Unset an environmental variable in launchd" },
+ 	{ "getenv",			getenv_and_export_cmd,	"Get an environmental variable from launchd" },
+@@ -4826,5 +4880,100 @@
+ 
+ 	if (stat("/var/db/.launchd_shutdown_debugging", &sb) == 0 && _launchctl_verbose_boot) {
+ 		_launchctl_startup_debugging = true;
++	}
++}
++
++
++static int
++kickstart_cmd(int argc, char *const argv[])
++{
++	if (argc < 2) {
++		fprintf(stderr, "usage: kickstart <service-target>\n");
++		return EX_USAGE;
+ 	}
++	return start_stop_remove_cmd(argc, argv);
+ }
++
++static int
++kill_cmd(int argc, char *const argv[])
++{
++	if (argc < 3) {
++		fprintf(stderr, "usage: kill <signal> <service-target>\n");
++		return EX_USAGE;
++	}
++	return start_stop_remove_cmd(argc, argv);
++}
++
++static int
++blame_cmd(int argc, char *const argv[])
++{
++	if (argc < 2) {
++		fprintf(stderr, "usage: blame <service-target>\n");
++		return EX_USAGE;
++	}
++	return start_stop_remove_cmd(argc, argv);
++}
++
++static int
++bootout_cmd(int argc, char *const argv[])
++{
++	if (argc < 2) {
++		fprintf(stderr, "usage: bootout <service-target>\n");
++		return EX_USAGE;
++	}
++	return start_stop_remove_cmd(argc, argv);
++}
++
++static int
++enable_disable_cmd(int argc, char *const argv[])
++{
++	if (argc < 2) {
++		fprintf(stderr, "usage: %s <service-target>\n", argv[0]);
++		return EX_USAGE;
++	}
++	return start_stop_remove_cmd(argc, argv);
++}
++
++GEN_USAGE(print_cmd, "print <target>")
++GEN_USAGE(print_cache_cmd, "print-cache")
++GEN_USAGE(print_disabled_cmd, "print-disabled")
++GEN_USAGE(print_token_cmd, "print-token")
++GEN_USAGE(plist_cmd, "plist <target>")
++GEN_USAGE(procinfo_cmd, "procinfo")
++GEN_USAGE(hostinfo_cmd, "hostinfo")
++GEN_USAGE(examine_cmd, "examine <target>")
++GEN_USAGE(resolveport_cmd, "resolveport")
++static int
++error_cmd(int argc, char *const argv[])
++{
++	if (argc < 2) {
++		fprintf(stderr, "usage: error <number>\n");
++		return EX_USAGE;
++	}
++	char *end = NULL;
++	long n = strtol(argv[1], &end, 0);
++	if (end && *end) {
++		fprintf(stderr, "error: invalid number\n");
++		return EX_USAGE;
++	}
++	fprintf(stdout, "%s\n", strerror((int)n));
++	return 0;
++}
++GEN_USAGE(config_cmd, "config")
++GEN_USAGE(dump_xsc_cmd, "dump-xsc")
++GEN_USAGE(dumpjpcategory_cmd, "dumpjpcategory")
++GEN_USAGE(variant_cmd, "variant")
++GEN_USAGE(reboot_cmd, "reboot")
++GEN_USAGE(reload_atf_cmd, "reload-atf")
++
++static int
++dumpstate_cmd(int argc, char *const argv[])
++{
++	return 0;
++}
++
++static int
++bootshell_cmd(int argc, char *const argv[])
++{
++	return 0;
++}
