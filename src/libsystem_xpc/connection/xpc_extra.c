@@ -117,34 +117,6 @@ xpc_activity_suspend(xpc_object_t activity) { (void)activity; }
 void
 xpc_activity_cancel(xpc_object_t activity) { (void)activity; }
 
-#pragma mark - Listener (out of Slice-C scope: endpoint-shaped shells)
-
-xpc_object_t
-xpc_listener_create(mach_port_t port)
-{
-    return xpc_endpoint_create(port);
-}
-
-xpc_object_t
-xpc_listener_create_anonymous(void)
-{
-    return xpc_endpoint_create(MACH_PORT_NULL);
-}
-
-void
-xpc_listener_set_incoming_session_handler(xpc_object_t listener,
-    xpc_handler_t handler)
-{
-    (void)listener; (void)handler;
-}
-
-void
-xpc_listener_resume(xpc_object_t listener) { (void)listener; }
-void
-xpc_listener_suspend(xpc_object_t listener) { (void)listener; }
-void
-xpc_listener_cancel(xpc_object_t listener) { (void)listener; }
-
 #pragma mark - Typed dictionary accessors (declared in xpc.h)
 
 void

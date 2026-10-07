@@ -168,6 +168,9 @@ xpc_release(xpc_object_t obj)
         if (s->cancel_handler) Block_release(s->cancel_handler);
         break;
     }
+    case XPC_KIND_LISTENER:
+        xpc_listener_dispose((xpc_listener_t)obj);
+        break;
     case XPC_KIND_RICH_ERROR: {
         struct _xpc_rich_error_s *r = (struct _xpc_rich_error_s *)(void *)obj;
         free(r->desc);

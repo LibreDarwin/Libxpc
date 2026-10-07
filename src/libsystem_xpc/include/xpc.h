@@ -92,6 +92,7 @@ typedef void (*xpc_finalizer_t)(void *context);
 typedef struct _xpc_endpoint_s *xpc_endpoint_t;
 typedef struct _xpc_connection_s *xpc_connection_t;
 typedef struct _xpc_session_s *xpc_session_t;
+typedef struct _xpc_listener_s *xpc_listener_t;
 typedef struct _xpc_rich_error_s *xpc_rich_error_t;
 typedef struct _xpc_peer_requirement_s *xpc_peer_requirement_t;
 
@@ -296,13 +297,40 @@ void xpc_session_set_peer_requirement(xpc_session_t session,
 
 #pragma mark - Listener
 
-xpc_object_t xpc_listener_create(mach_port_t port);
-xpc_object_t xpc_listener_create_anonymous(void);
-void xpc_listener_set_incoming_session_handler(xpc_object_t listener,
-    xpc_handler_t handler);
-void xpc_listener_resume(xpc_object_t listener);
-void xpc_listener_suspend(xpc_object_t listener);
-void xpc_listener_cancel(xpc_object_t listener);
+/* The listener is the service-side counterpart of the session: it owns a
+ * named listening connection and mints one incoming peer session per client
+ * connection.  In this hermetic transport the listener registers its name at
+ * activate() so clients resolve it with xpc_connection_create_mach_service(),
+ * and the peer session is a manageability wrapper over the (single) incoming
+ * client connection.  All message traffic flows over mach port 0 (see
+ * local/Libxpc.md), so there is no per-peer port handoff. */
+
+typedef uint64_t xpc_listener_create_flags_t;
+
+#define XPC_LISTENER_CREATE_NONE (0)
+#define XPC_LISTENER_CREATE_INACTIVE (1 << 0)
+#define XPC_LISTENER_CREATE_FORCE_MACH (1 << 1)
+#define XPC_LISTENER_CREATE_FORCE_XPCSERVICE (1 << 2)
+
+typedef void (^xpc_listener_incoming_session_handler_t)(xpc_session_t peer);
+
+xpc_listener_t xpc_listener_create(const char *service,
+    dispatch_queue_t target_queue, xpc_listener_create_flags_t flags,
+    xpc_listener_incoming_session_handler_t incoming_session_handler,
+    xpc_rich_error_t *error_out);
+bool xpc_listener_activate(xpc_listener_t listener,
+    xpc_rich_error_t *error_out);
+void xpc_listener_cancel(xpc_listener_t listener);
+void xpc_listener_reject_peer(xpc_session_t peer, const char *reason);
+int xpc_listener_set_peer_code_signing_requirement(xpc_listener_t listener,
+    const char *requirement);
+void xpc_listener_set_peer_requirement(xpc_listener_t listener,
+    xpc_peer_requirement_t requirement);
+char *xpc_listener_copy_description(xpc_listener_t listener);
+xpc_listener_t xpc_listener_create_anonymous(void);
+xpc_endpoint_t xpc_listener_create_endpoint(xpc_listener_t listener);
+void xpc_listener_set_incoming_session_handler(xpc_listener_t listener,
+    xpc_listener_incoming_session_handler_t handler);
 
 #pragma mark - Null
 

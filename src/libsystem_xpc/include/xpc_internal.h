@@ -296,6 +296,25 @@ struct _xpc_session_s {
      * rich error. */
     xpc_session_incoming_message_handler_t incoming_handler;
     xpc_session_cancel_handler_t cancel_handler;
+    /* Non-owning back pointer to the listener that minted this peer, valid
+     * while the listener owns this session in its single peer slot.  Used by
+     * xpc_listener_reject_peer(); the listener clears it before dropping the
+     * peer so a stale reject no-ops.  Never retained: that would cycle with
+     * the listener's peer reference. */
+    struct _xpc_listener_s *owner;
+};
+
+struct _xpc_listener_s {
+    struct _xpc_object_s hdr;
+    xpc_connection_t connection;    /* backing listening connection, transferred ref */
+    char *name;                     /* service name; NULL for anonymous */
+    /* The incoming-session handler, copied when set.  A client's first
+     * message mints an incoming peer session handed to this handler;
+     * subsequent messages route to the peer's message handler. */
+    xpc_listener_incoming_session_handler_t incoming_session_handler;
+    xpc_session_t peer;             /* current peer session, owned (retained) */
+    bool activated;                 /* backing connection activated */
+    bool cancelled;                 /* listener cancelled */
 };
 
 struct _xpc_rich_error_s {
@@ -426,6 +445,7 @@ xpc_connection_t xpc_connection_create_with_port(mach_port_t port,
     xpc_handler_t handler, void *context, xpc_finalizer_t finalizer);
 void xpc_connection_register_mach_service(const char *name, mach_port_t port);
 void xpc_connection_dispose(xpc_connection_t conn);
+void xpc_listener_dispose(xpc_listener_t listener);
 
 /* Rich error construction (object/xpc_rich_error.c). */
 xpc_rich_error_t xpc_rich_error_create(const char *desc, bool can_retry);
