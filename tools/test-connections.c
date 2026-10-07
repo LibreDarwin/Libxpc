@@ -57,6 +57,7 @@
 
 #include "xpc.h"
 
+#include <dispatch/dispatch.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -890,6 +891,20 @@ main(void)
     xpc_transaction_end();
     xpc_transaction_end();
     check(1, "transaction: begin/end balance");
+
+    /* --- dispatch-data-backed values ----------------------------------- */
+
+    uint8_t dblob[33];
+    for (int k = 0; k < 33; k++) dblob[k] = (uint8_t)(k * 7);
+    dispatch_data_t dd = dispatch_data_create(dblob, sizeof(dblob), NULL, NULL);
+    xpc_object_t ddata_obj = xpc_data_create_with_dispatch_data(dd);
+    size_t ddata_len = xpc_data_get_length(ddata_obj);
+    const void *ddata_ptr = xpc_data_get_bytes_ptr(ddata_obj);
+    check(ddata_len == sizeof(dblob) && ddata_ptr != NULL &&
+        memcmp(ddata_ptr, dblob, sizeof(dblob)) == 0,
+        "data: create_with_dispatch_data round-trips");
+    xpc_release(ddata_obj);
+    dispatch_release(dd);
 
     /* --- cancel semantics ---------------------------------------------- */
 

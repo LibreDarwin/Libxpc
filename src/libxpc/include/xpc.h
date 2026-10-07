@@ -429,6 +429,7 @@ void xpc_date_get_timespec(xpc_object_t object, struct timespec *ts);
 #pragma mark - Data
 
 xpc_object_t xpc_data_create(const void *bytes, size_t length);
+xpc_object_t xpc_data_create_with_dispatch_data(dispatch_data_t ddata);
 xpc_object_t xpc_data_create_with_bytes(const void *bytes, size_t length);
 size_t xpc_data_get_length(xpc_object_t object);
 const void *xpc_data_get_bytes_ptr(xpc_object_t object);

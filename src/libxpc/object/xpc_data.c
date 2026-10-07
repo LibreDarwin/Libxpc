@@ -64,6 +64,52 @@ xpc_data_create(const void *bytes, size_t length)
     return (xpc_object_t)d;
 }
 
+/*
+ * xpc_data_create_with_dispatch_data(ddata) — data backed by a dispatch
+ * data object.  Apple's libxpc keeps a dispatch_retain'ed reference and
+ * maps bytes lazily (the point of the create_map call is deliberately
+ * undefined).  This port coalesces eagerly into an owned buffer: the result
+ * is a plain xpc_data_t with no dispatch lifetime, so the caller may
+ * release ddata immediately and the value serializes identically.
+ */
+xpc_object_t
+xpc_data_create_with_dispatch_data(dispatch_data_t ddata)
+{
+    if (!ddata) return NULL;
+
+    size_t length = dispatch_data_get_size(ddata);
+    xpc_data_t *d = XPC_CAST(xpc_data_t,
+        xpc_object_alloc(&_xpc_type_data, sizeof(xpc_data_t)));
+    if (!d) return NULL;
+
+    if (length == 0) {
+        d->data = NULL;
+        d->length = 0;
+        return (xpc_object_t)d;
+    }
+
+    const void *bytes = NULL;
+    size_t len = 0;
+    dispatch_data_t contig = dispatch_data_create_map(ddata, &bytes, &len);
+    if (!contig) {
+        free(d);
+        return NULL;
+    }
+
+    uint8_t *copy = malloc(len);
+    if (!copy) {
+        dispatch_release(contig);
+        free(d);
+        return NULL;
+    }
+    memcpy(copy, bytes, len);
+    dispatch_release(contig);
+
+    d->data = copy;
+    d->length = len;
+    return (xpc_object_t)d;
+}
+
 /* Internal: adopt an existing heap buffer (xpc_deserialize.c uses this). */
 xpc_object_t
 xpc_data_create_take(uint8_t *bytes, size_t length)

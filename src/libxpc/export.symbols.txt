@@ -236,6 +236,7 @@ _xpc_copy_entitlements_for_pid
 _xpc_create_from_plist
 _xpc_create_from_plist_with_string_cache
 _xpc_data_create
+_xpc_data_create_with_dispatch_data
 _xpc_data_get_bytes
 _xpc_data_get_bytes_ptr
 _xpc_data_get_length
