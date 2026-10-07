@@ -9,7 +9,7 @@
  * xpc_launchd.c -- the libxpc SPI only launchd calls.
  *
  * Apple's 10.9 libxpc carried these for launchd-842; nothing else uses
- * them, so they are built into launchd rather than libsystem_xpc.
+ * them, so they are built into launchd rather than the libxpc dylib.
  *
  * ld2xpc() turns job plist data launchd has already parsed into XPC
  * objects (job defaults, external events).  Each launch_data type maps to

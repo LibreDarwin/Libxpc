@@ -38,7 +38,7 @@
  *   singletons in xpc_types.c; `refs` is an atomic refcount.
  *
  * Wire format:
- *   Serialization follows docs/WIRE_FORMAT.md exactly — the CPX@
+ *   Serialization follows docs/GUIDE.md exactly — the CPX@
  *   envelope, the 4-byte aligned keys, and the type tags below.
  *   Numbers are little-endian on all supported platforms.
  */
@@ -504,7 +504,7 @@ struct _xpc_peer_requirement_s *xpc_peer_requirement_alloc(
 
 #pragma mark - Serialization (xpc_serialize.c)
 
-/* Type tags as they appear on the wire.  (docs/WIRE_FORMAT.md §4)
+/* Type tags as they appear on the wire.  (docs/GUIDE.md §4)
  *
  * Tag anatomy (confirmed by probe11 against real bytes): the type id
  * occupies bits 8..19 and the LOW BYTE carries the index into the
@@ -551,7 +551,7 @@ enum {
 uint8_t *xpc_wire_serialize(xpc_object_t object, uint32_t msg_id,
     size_t *out_len);
 
-/* Envelope constants (docs/WIRE_FORMAT.md §2). */
+/* Envelope constants (docs/GUIDE.md §2). */
 #define XPC_WIRE_MAGIC "CPX@"
 #define XPC_WIRE_VERSION 5u
 #define XPC_WIRE_FLAGS_DICT 0xf000u
@@ -653,7 +653,7 @@ void xpc_dictionary_set_audit_token(xpc_object_t dict,
     const audit_token_t *token);
 
 /*
- * msgh_id values (docs/WIRE_FORMAT.md §6, §11).  Confirmed against Apple's
+ * msgh_id values (docs/GUIDE.md §6, §11).  Confirmed against Apple's
  * __xpc_pipe_pack_message (libxpc.dylib): base ids are
  * 0x10000000 (simpleroutine) / 0x40000000 (routine); a reply id of
  * 0x20000000 is AND'd in when a reply port is present.  The routine path

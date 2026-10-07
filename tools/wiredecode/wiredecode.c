@@ -33,7 +33,7 @@
  * wiredecode — standalone decoder for libxpc dictionary wire format.
  *
  * Parses a raw byte stream (hex dump or binary file) into a printable
- * dictionary tree, using the format documented in docs/WIRE_FORMAT.md.
+ * dictionary tree, using the format documented in docs/GUIDE.md.
  * The parser core (wirefmt.c) is shared with the probe interposer, so a
  * capture decoded inline by the interposer can be cross-validated here.
  *

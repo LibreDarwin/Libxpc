@@ -4,7 +4,7 @@
  * probe9.c — version routine (`PRINT` 0x33c) through OUR libxpc with a
  * genuine shared-memory value, against the live bootstrap port.
  *
-* This is §11.3 of docs/WIRE_FORMAT.md re-run with this tree's own
+* This is §11.3 of docs/GUIDE.md re-run with this tree's own
  * serializer: the request maps a vm region as a Mach memory entry
  * (wire kind 0xc000), launchd maps that entry and writes its version
  * string back into the region, and the reply is the plain dict
@@ -14,7 +14,7 @@
  *  region (0x8000) validates that the wire's 8-byte shmem size field
  *  carries the entry's real page-aligned span, not a constant.
  *
- *  Build: cc -o probe9 probe9.c -I../.. -L../../build/release -lsystem_xpc \
+ *  Build: cc -o probe9 probe9.c -I../.. -L../../build/release -lxpc \
  *             -Wl,-rpath,../../build/release
  *  Run:   DYLD_INSERT_LIBRARIES=tools/probe/interpose.dylib ./probe9 [size]
  */

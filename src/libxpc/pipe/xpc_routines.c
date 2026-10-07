@@ -37,7 +37,7 @@
  * bootstrap pipe (host_get_launchctl_port), xpc_pipe_routine_checked with its
  * "subsystem"/"routine" request routing and reply origin verification, and
  * the xpc_domain_routine / xpc_service_routine wrappers.  Wire behavior is
- * byte-identical to Apple's implementation (docs/LAUNCHCTL.md).
+ * byte-identical to Apple's implementation (docs/GUIDE.md).
  *
  * The audit token of a routine reply is captured from the mach receive
  * trailer (the reply must originate from PID 1, euid 0 — i.e. launchd).

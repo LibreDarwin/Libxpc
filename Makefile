@@ -2,7 +2,7 @@
 #
 # The tree is shaped like Apple's libSystem family:
 #
-#   src/libsystem_xpc/  the xpc component -> libsystem_xpc.dylib (own Makefile)
+#   src/libxpc/       the xpc component -> libxpc.dylib (own Makefile)
 #   include/         SPI declarations no SDK ships, for the Apple sources
 #   mk/patches/      numbered patch series applied to copies of those sources
 #   src/launchctl/   clean-room launchctl, kept as an e2e test client only
@@ -26,7 +26,7 @@ BUILD	 := ${.CURDIR}/build
 OBJDIR	 := ${BUILD}/obj
 RELEASE	 := ${BUILD}/release
 TESTDIR	 := ${BUILD}/test
-LIBS	 := ${RELEASE}/libsystem_xpc.dylib
+LIBS	 := ${RELEASE}/libxpc.dylib
 # launchctl and launchd are Apple's own sources; the stub and the clean-room
 # launchctl are test-only and stay out of the release tree.
 LAUNCHCTL:= ${RELEASE}/launchctl
@@ -35,7 +35,7 @@ TESTCTL	:= ${TESTDIR}/launchctl
 FRAMEWORK:= ${RELEASE}/XPC.framework
 
 SDK_PATH!=	xcrun --show-sdk-path 2>/dev/null || true
-INCLUDES := -I${.CURDIR}/src/libsystem_xpc/include -I${SDK_PATH}/usr/include
+INCLUDES := -I${.CURDIR}/src/libxpc/include -I${SDK_PATH}/usr/include
 DEFINES := -DMACOSX -DDARWIN64 -DDARWIN -DBUILD_DARWIN
 CFLAGS	:= -std=c11 -fblocks -g -O0 -Wall -Wextra -Werror \
 		-MMD -MP ${INCLUDES} ${DEFINES}
@@ -79,7 +79,7 @@ ${LAUNCHD_SRC}/.patched: ${LAUNCHD_PATCHES}
 patch-apple: ${LAUNCHD_SRC}/.patched
 
 # liblaunch: launchd's liblaunch, libvproc and libbootstrap, built from the
-# patched copy into libsystem_xpc -- on modern Darwin the launch_*, vproc_*
+# patched copy into libxpc -- on modern Darwin the launch_*, vproc_*
 # and bootstrap_* API lives in libxpc.  They are Apple's sources, so they
 # build with Apple's flags (liblaunch.xcconfig) rather than our -Werror.
 #
@@ -142,7 +142,7 @@ ${OBJDIR}/liblaunch/${_s:T:R}.o: ${LAUNCHD_GEN}/.mig
 
 # launchd: Apple's launchd-842 from the patched copy, the MIG stubs it
 # serves and calls, and the libxpc SPI only it uses (src/launchd/
-# xpc_launchd.c), linked against libsystem_xpc.  Same
+# xpc_launchd.c), linked against libxpc.  Same
 # flags as liblaunch, plus Libinfo's private libinfo.h.  Libinfo is
 # apple-oss as well, so it is located the same way launchd is.
 .if !defined(LIBINFO_UPSTREAM)
@@ -190,7 +190,7 @@ ${OBJDIR}/launchd/${_s:T:R}.o: ${LAUNCHD_GEN}/.mig
 .endfor
 
 ${LAUNCHD_REAL}: ${LAUNCHD_OBJS} ${LIBS}
-	${CC} -isysroot ${SDK_PATH} ${LAUNCHD_OBJS} -L${RELEASE} -lsystem_xpc \
+	${CC} -isysroot ${SDK_PATH} ${LAUNCHD_OBJS} -L${RELEASE} -lxpc \
 	    -lbsm -Wl,-rpath,${RELEASE} -o $@
 
 .PHONY: all libxpc launchctl launchd test release patch-apple clean ${LIBS}
@@ -206,7 +206,7 @@ launchd: ${LAUNCHD} ${LAUNCHD_REAL}
 # The component Makefile owns the object dependency graph (including its
 # .d files), so the root always delegates; the sub-make decides freshness.
 ${LIBS}: ${LIBLAUNCH_OBJS}
-	${.MAKE} -C src/libsystem_xpc RELEASE=${RELEASE} OBJDIR=${OBJDIR} \
+	${.MAKE} -C src/libxpc RELEASE=${RELEASE} OBJDIR=${OBJDIR} \
 	    EXTRA_OBJS="${LIBLAUNCH_OBJS}"
 
 ${RELEASE}:
@@ -237,7 +237,7 @@ BSM_OBJS	:= ${BSM_SRCS:T:R:S,^,${OBJDIR}/bsm/,:S,$,.o,}
 # launchd you are talking to.  Kept in Apple's field order so anything
 # parsing the banner still works.
 BOOT_VERSION!=	plutil -extract CFBundleShortVersionString raw -o - \
-		    ${.CURDIR}/src/libsystem_xpc/Info.plist 2>/dev/null || echo 0.0.0
+		    ${.CURDIR}/src/libxpc/Info.plist 2>/dev/null || echo 0.0.0
 BOOT_DESC!=	git -C ${.CURDIR} describe --always --dirty 2>/dev/null || echo unknown
 BOOT_DATE!=	date "+%a %b %e %H:%M:%S %Z %Y"
 BSM_CFLAGS	:= -isysroot ${SDK_PATH} -fblocks -g -O0 \
@@ -246,7 +246,7 @@ BSM_CFLAGS	:= -isysroot ${SDK_PATH} -fblocks -g -O0 \
 		   -idirafter ${INTERNAL_SDK}/usr/include
 LAUNCHCTL_CFLAGS:= -std=gnu11 -fblocks -g -O0 -fvisibility=hidden \
 		   -isysroot ${SDK_PATH} -include sys/socket_private.h \
-		   -I${.CURDIR}/src/libsystem_xpc/include \
+		   -I${.CURDIR}/src/libxpc/include \
 		   -I${.CURDIR}/include \
 		   -I${LAUNCHD_SRC}/src -I${LAUNCHD_SRC}/liblaunch \
 		   -idirafter ${SHIMDIR} \
@@ -300,7 +300,7 @@ ${LAUNCHCTL}: ${APPLE_LAUNCHCTL} ${LIBS} ${SHIMDIR}/CoreFoundation \
 	@mkdir -p ${.TARGET:H}
 	${CC} ${LAUNCHCTL_CFLAGS} ${APPLE_LAUNCHCTL} ${BSM_OBJS} \
 	    ${OBJDIR}/auditd_lib.o ${OBJDIR}/systemstats_stub.o \
-	    -L${RELEASE} -lsystem_xpc -Wl,-rpath,${RELEASE} \
+	    -L${RELEASE} -lxpc -Wl,-rpath,${RELEASE} \
 	    -framework CoreFoundation -framework IOKit \
 	    -Wl,-U,_readline -Wl,-U,__CFConstantStringClassReference \
 	    -Wl,-U,__kCFSystemVersionBuildVersionKey -o $@
@@ -308,37 +308,37 @@ ${LAUNCHCTL}: ${APPLE_LAUNCHCTL} ${LIBS} ${SHIMDIR}/CoreFoundation \
 # Test-only, not shipped: the clean-room launchctl is the e2e harness's XPC
 # client, and launchd_stub is the in-process launchd it talks to.  Shipped
 # launchctl is Apple's, built above.
-${TESTCTL}: src/launchctl/launchctl.c src/libsystem_xpc/include/xpc.h ${LIBS}
+${TESTCTL}: src/launchctl/launchctl.c src/libxpc/include/xpc.h ${LIBS}
 	@mkdir -p ${.TARGET:H}
-	${CC} ${CFLAGS} src/launchctl/launchctl.c -L${RELEASE} -lsystem_xpc \
+	${CC} ${CFLAGS} src/launchctl/launchctl.c -L${RELEASE} -lxpc \
 	    -Wl,-rpath,${RELEASE} -o $@
 
 # The connection/session duplex round-trip test: one process plays both the
 # listener and the client, so it needs no launchd machinery.
 TESTCONN := ${TESTDIR}/test-connections
-${TESTCONN}: tools/test-connections.c src/libsystem_xpc/include/xpc.h ${LIBS}
+${TESTCONN}: tools/test-connections.c src/libxpc/include/xpc.h ${LIBS}
 	@mkdir -p ${.TARGET:H}
-	${CC} ${CFLAGS} tools/test-connections.c -L${RELEASE} -lsystem_xpc \
+	${CC} ${CFLAGS} tools/test-connections.c -L${RELEASE} -lxpc \
 	    -Wl,-rpath,${RELEASE} -o $@
 
 ${LAUNCHD}: src/launchd/launchd_stub.c src/launchctl/launchctl.c \
-    src/libsystem_xpc/include/xpc.h ${LIBS} ${TESTCTL}
+    src/libxpc/include/xpc.h ${LIBS} ${TESTCTL}
 	@mkdir -p ${.TARGET:H}
 	${CC} ${CFLAGS} -DXNUXPORTS_EMBED -c src/launchctl/launchctl.c \
 	    -o ${OBJDIR}/launchctl_embed.o
 	${CC} ${CFLAGS} src/launchd/launchd_stub.c ${OBJDIR}/launchctl_embed.o \
-	    -L${RELEASE} -lsystem_xpc -lpthread \
+	    -L${RELEASE} -lxpc -lpthread \
 	    -Wl,-rpath,${RELEASE} -o $@
 
 # XPC.framework is a re-export umbrella, like Apple's: a thin dylib whose
-# only load command is LC_REEXPORT_DYLIB of our libsystem_xpc.
+# only load command is LC_REEXPORT_DYLIB of our libxpc.
 ${FRAMEWORK}: ${LIBS} ${RELEASE}
 	@mkdir -p $@/Versions/A/Headers $@/Versions/A/Modules $@/Versions/A/Resources
 	${CC} -dynamiclib -install_name @rpath/XPC.framework/Versions/A/XPC \
 	    -Wl,-reexport_library,${LIBS} -o $@/Versions/A/XPC
-	cp src/libsystem_xpc/include/xpc.h $@/Versions/A/Headers/
-	cp src/libsystem_xpc/module.modulemap $@/Versions/A/Modules/
-	cp src/libsystem_xpc/Info.plist $@/Versions/A/Resources/
+	cp src/libxpc/include/xpc.h $@/Versions/A/Headers/
+	cp src/libxpc/module.modulemap $@/Versions/A/Modules/
+	cp src/libxpc/Info.plist $@/Versions/A/Resources/
 	ln -sfh A $@/Versions/Current
 	ln -sfh Versions/Current/Headers $@/Headers
 	ln -sfh Versions/Current/Modules $@/Modules

@@ -46,7 +46,7 @@
  * that crosses, byte for byte: the connection handshake, the serialized
  * objects, the port descriptors.
  *
- * The log is the spec.  See docs/WIRE_FORMAT.md.
+ * The log is the spec.  See docs/GUIDE.md.
  *
  * This tool intentionally links the real /usr/lib/system/libxpc.dylib.
  * It is a research instrument, not part of the reimplementation.

@@ -63,7 +63,7 @@
 +	/* The housekeeping probe real launchctl emits before every command
 +	 * (XPC_ROUTINE_SERVICE_STATUS, 0x400000cf): a dict of handle, type,
 +	 * flags, targetpid, name and instance, plus the bootstrap port under
-+	 * "domain-port" when not root.  Observed wire layout: WIRE_FORMAT.md,
++	 * "domain-port" when not root.  Observed wire layout: docs/GUIDE.md,
 +	 * section 11.2. */
 +	xpc_dictionary_set_uint64(request, "handle", 0);
 +	xpc_dictionary_set_uint64(request, "type", 1); /* system domain */

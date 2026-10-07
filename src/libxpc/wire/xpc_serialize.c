@@ -33,7 +33,7 @@
  * xpc_serialize.c — wire serialization for the reimplemented XPC
  * framework.
  *
- * Byte-for-byte faithful to docs/WIRE_FORMAT.md:
+ * Byte-for-byte faithful to docs/GUIDE.md:
  *   mach header (24B) + "CPX@" + version(4) + flags(4) + body_len(4)
  *   + body = count(4) + (key-padded + tag + payload)*
  *
@@ -347,7 +347,7 @@ xpc_wire_serialize(xpc_object_t object, uint32_t msg_id, size_t *out_len)
      *   + envelope (16) + body.
      * Each send right rides as a MACH_MSG_PORT_DESCRIPTOR (type 0) with
      * the port name inline, exactly like the captured /bin/launchctl
-     * traffic (docs/WIRE_FORMAT.md §11.2).  The dict's mach-send value
+     * traffic (docs/GUIDE.md §11.2).  The dict's mach-send value
      * (tag 0xd000) references the descriptor by its index in this table.
      * Launchd destroys the send-once reply right without replying if the
      * port arrives any other way (e.g. an OOL_PORTS descriptor).

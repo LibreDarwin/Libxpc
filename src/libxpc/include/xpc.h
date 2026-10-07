@@ -38,7 +38,7 @@
  *
  * This is an independent reimplementation; it is NOT Apple's code.
  * The byte-level wire format it speaks is documented in
- * docs/WIRE_FORMAT.md (reverse-engineered and cross-validated
+ * docs/GUIDE.md (reverse-engineered and cross-validated
  * against the real libxpc on macOS 26).
  */
 

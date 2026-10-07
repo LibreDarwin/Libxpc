@@ -33,7 +33,7 @@
  * launchctl — launchd domain/service control, implemented on xnuports libxpc.
  *
  * Talks to the real launchd over the bootstrap pipe using the private
- * xpc_domain_routine / xpc_service_routine protocol (docs/LAUNCHCTL.md).
+ * xpc_domain_routine / xpc_service_routine protocol (docs/GUIDE.md).
  * Target syntax and command semantics mirror Apple's launchctl(1).
  */
 
@@ -705,7 +705,7 @@ status_cmd(int argc, char **argv)
         return 1;
     }
     request = xpc_dictionary_create(NULL, NULL, 0);
-    /* Observed probe fields (WIRE_FORMAT.md §11.2). */
+    /* Observed probe fields (docs/GUIDE.md §11.2). */
     xpc_dictionary_set_uint64(request, "handle", 0);
     xpc_dictionary_set_uint64(request, "type", LAUNCHCTL_DOMAIN_SYSTEM);
     xpc_dictionary_set_uint64(request, "flags", 0);

@@ -36,7 +36,7 @@
  * launchd does not know, so both sides failed at the handshake: the
  * listener's SERVICE_CHECK_IN (0x325) answered error=1 (no such service),
  * the client's SERVICE_LOOKUP (0x324) answered error=3.  Those bytes are
- * banked (see WIRE_FORMAT.md ss12).  What is still missing is the SUCCESS
+ * banked (see docs/GUIDE.md ss12).  What is still missing is the SUCCESS
  * path: check-in and lookup replies carrying the service port, and the
  * connection messages that flow over the resolved port (async send,
  * sync/async with-reply wiring, endpoint object encoding).

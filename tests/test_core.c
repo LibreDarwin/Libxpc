@@ -60,7 +60,7 @@ int main(void) {
     /* Port-backed value round trip: endpoint (0x12000) and mach-send
      * (0xd000) must serialize as slot tags, ride in the message's port
      * descriptor table, and deserialize back to the same kinds —
-     * byte-faithful to the probe11 capture (docs/WIRE_FORMAT.md §11.2). */
+     * byte-faithful to the probe11 capture (docs/GUIDE.md §11.2). */
     {
         mach_port_t right = MACH_PORT_NULL;
         assert(mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE,

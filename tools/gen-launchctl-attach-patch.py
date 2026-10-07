@@ -51,7 +51,7 @@ out = []
 # --- Hunk 3: parse_service_target + attach_cmd before list_cmd ------------
 BLOCK = '''#define LAUNCHCTL_STATUS_SERVICE_TARGET_REQUIRED 10
 
-/* Modern "type" domain values (xpc_domain_type), per WIRE_FORMAT.md. */
+/* Modern "type" domain values (xpc_domain_type), per docs/GUIDE.md. */
 #define XN_XPC_DOMAIN_SYSTEM		1
 #define XN_XPC_DOMAIN_USER		2
 #define XN_XPC_DOMAIN_LOGIN		3

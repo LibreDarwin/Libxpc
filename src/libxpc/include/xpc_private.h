@@ -61,7 +61,7 @@ extern "C" {
 /*
  * The launchd XPC request protocol routes on two uint32 keys in the request
  * dictionary: "subsystem" selects the target (service vs. domain), "routine"
- * selects the operation.  (docs/LAUNCHCTL.md — routine tables.)
+ * selects the operation.  (docs/GUIDE.md — routine tables.)
  */
 enum xpc_launchd_subsystem {
     XPC_LAUNCHD_SUBSYSTEM_SERVICE = 2,
@@ -235,7 +235,7 @@ enum {
 
 /*
  * Shmem objects carry a writable shared region..  Requires the wire-layer
- * descriptor support (docs/WIRE_FORMAT.md — OOL memory regions).
+ * descriptor support (docs/GUIDE.md — OOL memory regions).
  * xpc_shmem_create maps *region as a memory entry; xpc_shmem_map attaches a
  * received shmem object in this process.
  */
@@ -244,6 +244,14 @@ int xpc_shmem_map(xpc_object_t shmem, void **region, size_t *length);
 
 /* Receive-side attachment of reply senders' audit tokens. */
 int xpc_dictionary_get_audit_token(xpc_object_t dict, audit_token_t *token);
+
+/*
+ * Entitlement SPI, matching Apple's export surface (launchd links against
+ * these; macOS provides them from /usr/lib/system/libxpc.dylib).  Both use
+ * the legacy key-first signature this launchd tree compiles against.
+ */
+xpc_object_t xpc_copy_entitlement_for_token(const char *key, audit_token_t *token);
+xpc_object_t xpc_copy_entitlements_for_pid(int pid);
 
 #ifdef __cplusplus
 }

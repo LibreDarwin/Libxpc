@@ -11,7 +11,7 @@
  *   - tools/probe/interpose.c (live capture: renders chased serialized
  *     dictionaries inline, instead of raw hex)
  *
- * The parser implements the encoding documented in docs/WIRE_FORMAT.md:
+ * The parser implements the encoding documented in docs/GUIDE.md:
  *
  *   envelope  = "CPX@" magic(4) version(4) flags(4) body_len(4)
  *               count(4) then count key-value slots totaling body_len - 4.
