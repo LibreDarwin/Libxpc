@@ -78,6 +78,19 @@ xpc_bool_get_value(xpc_object_t obj)
     return XPC_CAST(xpc_scalar_t, obj)->v.bval;
 }
 
+/*
+ * xpc_bool_set_value(obj, value) — SPI value setter.  Apple's
+ * implementation stores blindly (tbz disable_disasm offsets); we type-check
+ * first so misuse fails loudly but silently, matching the port's other
+ * accessor conventions.
+ */
+void
+xpc_bool_set_value(xpc_object_t obj, bool value)
+{
+    if (!XPC_OBJECT_CHECK(obj, &_xpc_type_bool)) return;
+    XPC_CAST(xpc_scalar_t, obj)->v.bval = value;
+}
+
 #pragma mark - int64
 
 xpc_object_t
@@ -94,6 +107,13 @@ xpc_int64_get_value(xpc_object_t obj)
 {
     if (!XPC_OBJECT_CHECK(obj, &_xpc_type_int64)) return 0;
     return XPC_CAST(xpc_scalar_t, obj)->v.i64;
+}
+
+void
+xpc_int64_set_value(xpc_object_t obj, int64_t value)
+{
+    if (!XPC_OBJECT_CHECK(obj, &_xpc_type_int64)) return;
+    XPC_CAST(xpc_scalar_t, obj)->v.i64 = value;
 }
 
 #pragma mark - uint64
@@ -130,6 +150,13 @@ xpc_double_get_value(xpc_object_t obj)
 {
     if (!XPC_OBJECT_CHECK(obj, &_xpc_type_double)) return 0.0;
     return XPC_CAST(xpc_scalar_t, obj)->v.dbl;
+}
+
+void
+xpc_double_set_value(xpc_object_t obj, double value)
+{
+    if (!XPC_OBJECT_CHECK(obj, &_xpc_type_double)) return;
+    XPC_CAST(xpc_scalar_t, obj)->v.dbl = value;
 }
 
 #pragma mark - date
@@ -180,4 +207,29 @@ xpc_get_service_identifier_for_token(audit_token_t *token)
 {
     (void)token;
     return NULL;
+}
+
+#pragma mark - pointer
+
+/*
+ * xpc_pointer_create(value) / xpc_pointer_get_value(obj) — SPI opaque
+ * pointer wrapping.  Apple allocates an 8-byte base object
+ * (__xpc_base_create(type, 8)); we reuse the scalar storage union.
+ * Pointer objects are never serialized; hitting the wire hits the
+ * serializer's default (abort) path, as on Apple.
+ */
+xpc_object_t
+xpc_pointer_create(void *value)
+{
+    xpc_scalar_t *o = XPC_CAST(xpc_scalar_t,
+        xpc_object_alloc_scalar(&_xpc_type_pointer));
+    if (o) o->v.ptr = value;
+    return (xpc_object_t)o;
+}
+
+void *
+xpc_pointer_get_value(xpc_object_t obj)
+{
+    if (!XPC_OBJECT_CHECK(obj, &_xpc_type_pointer)) return NULL;
+    return XPC_CAST(xpc_scalar_t, obj)->v.ptr;
 }

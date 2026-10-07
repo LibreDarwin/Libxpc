@@ -136,6 +136,23 @@ xpc_array_apply(xpc_object_t array,
     return true;
 }
 
+/*
+ * xpc_array_apply_f(array, context, applier) — SPI C-function variant of
+ * xpc_array_apply.  Apple shares the apply machinery and misuses
+ * ("Array mutated during iteration") the same way; iteration stops when
+ * the applier returns false.
+ */
+void
+xpc_array_apply_f(xpc_object_t array, void *context,
+    xpc_array_applier_function_t applier)
+{
+    if (!XPC_OBJECT_CHECK(array, &_xpc_type_array) || !applier) return;
+    xpc_array_t *a = XPC_CAST(xpc_array_t, array);
+    for (size_t i = 0; i < a->count; i++) {
+        if (!applier(i, a->items[i], context)) return;
+    }
+}
+
 xpc_object_t
 xpc_array_create_empty(void)
 {

@@ -80,6 +80,30 @@ xpc_string_get_length(xpc_object_t obj)
     return XPC_CAST(xpc_string_t, obj)->length;
 }
 
+/*
+ * xpc_string_set_value(obj, string) — SPI value setter.  Apple frees the
+ * existing buffer and strdups the new value; cached (constant) strings
+ * take a separate path we do not model.
+ */
+void
+xpc_string_set_value(xpc_object_t obj, const char *string)
+{
+    if (!XPC_OBJECT_CHECK(obj, &_xpc_type_string)) return;
+    xpc_string_t *s = XPC_CAST(xpc_string_t, obj);
+
+    char *copy = NULL;
+    if (string) {
+        size_t len = strlen(string);
+        copy = malloc(len + 1);
+        if (!copy) return;
+        memcpy(copy, string, len + 1);
+    }
+
+    free(s->data);
+    s->data = copy;
+    s->length = copy ? strlen(copy) : 0;
+}
+
 xpc_object_t
 xpc_string_create_no_copy(const char *value, size_t length, xpc_finalizer_t finalizer)
 {

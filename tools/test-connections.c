@@ -127,6 +127,22 @@ static pid_t server_peer_pid = 0;
 static uid_t server_peer_euid = (uid_t)-1;
 static bool server_peer_audit = false;
 
+/* SPI slice: xpc_array_apply_f accumulator. */
+static struct spi_sum_ctx {
+    size_t count;
+    int64_t total;
+} spi_sum_ctx;
+
+static bool
+spi_sum_applier(size_t idx, xpc_object_t value, void *cx)
+{
+    (void)idx;
+    struct spi_sum_ctx *c = (struct spi_sum_ctx *)(void *)cx;
+    c->count++;
+    c->total += xpc_int64_get_value(value);
+    return true;
+}
+
 static void
 server_event_handler(xpc_object_t event)
 {
@@ -968,6 +984,83 @@ main(void)
             xpc_release((xpc_object_t)pub);
         }
         dispatch_release(eq);
+    }
+
+    /* --- SPI slice: value setters, apply_f, pointer, event_channel ------ */
+
+    {
+        xpc_object_t b = xpc_bool_create(true);
+        xpc_bool_set_value(b, false);
+        check(!xpc_bool_get_value(b), "spi: xpc_bool_set_value");
+
+        xpc_object_t i = xpc_int64_create(7);
+        xpc_int64_set_value(i, -42);
+        check(xpc_int64_get_value(i) == -42, "spi: xpc_int64_set_value");
+
+        xpc_object_t d = xpc_double_create(1.5);
+        xpc_double_set_value(d, 3.25);
+        check(xpc_double_get_value(d) == 3.25, "spi: xpc_double_set_value");
+
+        xpc_object_t s = xpc_string_create("abc");
+        xpc_string_set_value(s, "def");
+        check(xpc_string_get_length(s) == 3 &&
+            strcmp(xpc_string_get_string_ptr(s), "def") == 0,
+            "spi: xpc_string_set_value");
+
+        xpc_object_t data = xpc_data_create("aaa", 3);
+        xpc_data_set_value(data, "xyzzy", 5);
+        check(xpc_data_get_length(data) == 5 &&
+            memcmp(xpc_data_get_bytes_ptr(data), "xyzzy", 5) == 0,
+            "spi: xpc_data_set_value");
+
+        xpc_release(b);
+        xpc_release(i);
+        xpc_release(d);
+        xpc_release(s);
+        xpc_release(data);
+    }
+
+    {
+        static int spi_payload;
+        xpc_object_t p = xpc_pointer_create(&spi_payload);
+        check(p != NULL && xpc_get_type(p) == &_xpc_type_pointer,
+            "spi: xpc_pointer_create type");
+        check(xpc_pointer_get_value(p) == (void *)&spi_payload,
+            "spi: xpc_pointer_get_value round-trip");
+        char *pdesc = xpc_copy_description(p);
+        check(pdesc && strstr(pdesc, "pointer") != NULL,
+            "spi: pointer description names the type");
+        free(pdesc);
+        xpc_release(p);
+    }
+
+    {
+        xpc_object_t a = xpc_array_create(NULL, 0);
+        check(a != NULL, "spi: apply_f array create");
+        const int64_t vals[] = { 1, 2, 3 };
+        for (size_t k = 0; k < 3; k++) {
+            xpc_object_t v = xpc_int64_create(vals[k]);
+            xpc_array_append_value(a, v);
+            xpc_release(v);
+        }
+        xpc_array_apply_f(a, &spi_sum_ctx, spi_sum_applier);
+        check(spi_sum_ctx.count == 3 && spi_sum_ctx.total == 6,
+            "spi: xpc_array_apply_f sum");
+        xpc_release(a);
+    }
+
+    {
+        /* Listener connections may be marked as event channels; peer
+         * connections refuse (the abort path is not exercised here). */
+        xpc_connection_t ec = xpc_connection_create_mach_service(
+            "xpc.test.eventchannel", NULL, XPC_CONNECTION_MACH_SERVICE_LISTENER);
+        check(ec != NULL, "spi: event_channel listener create");
+        if (ec) {
+            xpc_connection_set_event_channel(ec, true);
+            check(1, "spi: xpc_connection_set_event_channel accepted by listener");
+            xpc_connection_cancel(ec);
+            xpc_release((xpc_object_t)ec);
+        }
     }
 
     /* --- xpc_main: service runloop (final, in-process) ------------------ */

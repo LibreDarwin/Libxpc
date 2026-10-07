@@ -147,3 +147,28 @@ xpc_data_get_bytes(xpc_object_t obj, void *buffer, size_t off, size_t length)
     if (buffer && n > 0) memcpy(buffer, d->data + off, n);
     return n;
 }
+
+/*
+ * xpc_data_set_value(obj, bytes, length) — SPI value setter.  Apple frees
+ * the old buffer and stores a fresh copy (malloc/free via the "try"
+ * wrappers); zero length mirrors xpc_data_create in leaving the buffer
+ * NULL.
+ */
+void
+xpc_data_set_value(xpc_object_t obj, const void *bytes, size_t length)
+{
+    if (!XPC_OBJECT_CHECK(obj, &_xpc_type_data)) return;
+    if (length > 0 && !bytes) return;
+    xpc_data_t *d = XPC_CAST(xpc_data_t, obj);
+
+    uint8_t *copy = NULL;
+    if (length > 0) {
+        copy = malloc(length);
+        if (!copy) return;
+        memcpy(copy, bytes, length);
+    }
+
+    free(d->data);
+    d->data = copy;
+    d->length = length;
+}

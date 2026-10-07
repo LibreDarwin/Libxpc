@@ -63,6 +63,8 @@ const struct _xpc_type_s _xpc_type_rich_error = { "rich_error", XPC_KIND_RICH_ER
 const struct _xpc_type_s _xpc_type_mach_recv  = { "mach-recv",  XPC_KIND_MACH_RECV };
 const struct _xpc_type_s _xpc_type_peer_requirement =
     { "peer-requirement", XPC_KIND_PEER_REQUIREMENT };
+const struct _xpc_type_s _xpc_type_pointer =
+    { "pointer", XPC_KIND_POINTER };
 
 xpc_kind_t
 xpc_kind_from_type(xpc_type_t t)

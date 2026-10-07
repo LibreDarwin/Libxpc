@@ -863,6 +863,26 @@ xpc_connection_set_finalizer_f(xpc_connection_t connection,
     ((struct _xpc_connection_s *)(void *)connection)->finalizer = finalizer;
 }
 
+/*
+ * xpc_connection_set_event_channel(connection, flag) — SPI flag setter for
+ * event-channel connections.  Apple refuses peer connections
+ * ("Can't set event channel on peer connection"); the listener-only guard
+ * below mirrors that.  The flag itself is informational here: our event
+ * delivery path already reads the struct's handler/queue fields directly.
+ */
+void
+xpc_connection_set_event_channel(xpc_connection_t connection, bool flag)
+{
+    if (!connection) return;
+    struct _xpc_connection_s *c = (struct _xpc_connection_s *)(void *)connection;
+    if (c->listener) {
+        c->event_channel = flag;
+        return;
+    }
+    fprintf(stderr, "Can't set event channel on peer connection\n");
+    abort();
+}
+
 #pragma mark - Peer requirements
 
 static int

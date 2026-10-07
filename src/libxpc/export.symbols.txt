@@ -54,6 +54,7 @@ __xpc_type_mach_recv
 __xpc_type_mach_send
 __xpc_type_null
 __xpc_type_peer_requirement
+__xpc_type_pointer
 __xpc_type_rich_error
 __xpc_type_session
 __xpc_type_shmem
@@ -167,6 +168,7 @@ _xpc_activity_should_defer
 _xpc_activity_unregister
 _xpc_array_append_value
 _xpc_array_apply
+_xpc_array_apply_f
 _xpc_array_create
 _xpc_array_create_connection
 _xpc_array_create_empty
@@ -196,6 +198,7 @@ _xpc_array_set_uuid
 _xpc_array_set_value
 _xpc_bool_create
 _xpc_bool_get_value
+_xpc_bool_set_value
 _xpc_connection_activate
 _xpc_connection_cancel
 _xpc_connection_copy_invalidation_reason
@@ -218,6 +221,7 @@ _xpc_connection_send_message
 _xpc_connection_send_message_with_reply
 _xpc_connection_send_message_with_reply_sync
 _xpc_connection_set_context
+_xpc_connection_set_event_channel
 _xpc_connection_set_event_handler
 _xpc_connection_set_finalizer_f
 _xpc_connection_set_peer_code_signing_requirement
@@ -240,6 +244,7 @@ _xpc_data_create_with_dispatch_data
 _xpc_data_get_bytes
 _xpc_data_get_bytes_ptr
 _xpc_data_get_length
+_xpc_data_set_value
 _xpc_date_create
 _xpc_date_create_from_current
 _xpc_date_get_value
@@ -290,6 +295,7 @@ _xpc_dictionary_set_value
 _xpc_domain_routine
 _xpc_double_create
 _xpc_double_get_value
+_xpc_double_set_value
 _xpc_endpoint_copy_listener_port
 _xpc_endpoint_create
 _xpc_endpoint_get_port
@@ -304,6 +310,7 @@ _xpc_global_data_has_bootstrap_pipe
 _xpc_hash
 _xpc_int64_create
 _xpc_int64_get_value
+_xpc_int64_set_value
 _xpc_kind_from_type
 _xpc_listener_activate
 _xpc_listener_cancel
@@ -342,6 +349,8 @@ _xpc_pipe_routine_with_flags
 _xpc_pipe_set_local_handler
 _xpc_pipe_simpleroutine
 _xpc_pipe_try_receive
+_xpc_pointer_create
+_xpc_pointer_get_value
 _xpc_release
 _xpc_reply_move_disposition
 _xpc_reply_send
@@ -377,6 +386,7 @@ _xpc_string_create_with_format_and_arguments
 _xpc_string_create_with_length
 _xpc_string_get_length
 _xpc_string_get_string_ptr
+_xpc_string_set_value
 _xpc_transaction_begin
 _xpc_transaction_end
 _xpc_type_get_name

@@ -144,6 +144,7 @@ extern const struct _xpc_type_s _xpc_type_fd;
 extern const struct _xpc_type_s _xpc_type_rich_error;
 extern const struct _xpc_type_s _xpc_type_mach_recv;
 extern const struct _xpc_type_s _xpc_type_peer_requirement;
+extern const struct _xpc_type_s _xpc_type_pointer;
 
 #pragma mark - Connection
 
@@ -202,6 +203,8 @@ void xpc_connection_set_context(xpc_connection_t connection,
 void *xpc_connection_get_context(xpc_connection_t connection);
 void xpc_connection_set_finalizer_f(xpc_connection_t connection,
     xpc_finalizer_t finalizer);
+void xpc_connection_set_event_channel(xpc_connection_t connection,
+    bool flag);
 int xpc_connection_set_peer_code_signing_requirement(
     xpc_connection_t connection, const char *requirement);
 int xpc_connection_set_peer_entitlement_exists_requirement(
@@ -403,11 +406,13 @@ xpc_object_t xpc_null_create(void);
 
 xpc_object_t xpc_bool_create(bool value);
 bool xpc_bool_get_value(xpc_object_t object);
+void xpc_bool_set_value(xpc_object_t object, bool value);
 
 #pragma mark - Signed integer
 
 xpc_object_t xpc_int64_create(int64_t value);
 int64_t xpc_int64_get_value(xpc_object_t object);
+void xpc_int64_set_value(xpc_object_t object, int64_t value);
 
 #pragma mark - Unsigned integer
 
@@ -418,6 +423,7 @@ uint64_t xpc_uint64_get_value(xpc_object_t object);
 
 xpc_object_t xpc_double_create(double value);
 double xpc_double_get_value(xpc_object_t object);
+void xpc_double_set_value(xpc_object_t object, double value);
 
 #pragma mark - Date
 
@@ -426,11 +432,18 @@ xpc_object_t xpc_date_create_from_timespec(struct timespec *ts);
 int64_t xpc_date_get_value(xpc_object_t object);
 void xpc_date_get_timespec(xpc_object_t object, struct timespec *ts);
 
+#pragma mark - Pointer
+
+xpc_object_t xpc_pointer_create(void *value);
+void *xpc_pointer_get_value(xpc_object_t object);
+
 #pragma mark - Data
 
 xpc_object_t xpc_data_create(const void *bytes, size_t length);
 xpc_object_t xpc_data_create_with_dispatch_data(dispatch_data_t ddata);
 xpc_object_t xpc_data_create_with_bytes(const void *bytes, size_t length);
+void xpc_data_set_value(xpc_object_t object, const void *bytes,
+    size_t length);
 size_t xpc_data_get_length(xpc_object_t object);
 const void *xpc_data_get_bytes_ptr(xpc_object_t object);
 size_t xpc_data_get_bytes(xpc_object_t object, void *bytes, size_t offset,
@@ -441,6 +454,7 @@ size_t xpc_data_get_bytes(xpc_object_t object, void *bytes, size_t offset,
 xpc_object_t xpc_string_create(const char *string);
 xpc_object_t xpc_string_create_with_format(const char *fmt, ...);
 xpc_object_t xpc_string_create_with_length(const char *string, size_t length);
+void xpc_string_set_value(xpc_object_t object, const char *string);
 size_t xpc_string_get_length(xpc_object_t object);
 const char *xpc_string_get_string_ptr(xpc_object_t object);
 
@@ -478,6 +492,10 @@ const uint8_t *xpc_array_get_uuid(xpc_object_t object, size_t index);
 int64_t xpc_array_get_date(xpc_object_t object, size_t index);
 bool xpc_array_apply(xpc_object_t object,
     bool (^applier)(size_t index, xpc_object_t value));
+typedef bool (*xpc_array_applier_function_t)(size_t index, xpc_object_t value,
+    void *context);
+void xpc_array_apply_f(xpc_object_t object, void *context,
+    xpc_array_applier_function_t applier);
 void xpc_array_set_fd(xpc_object_t object, size_t index, int fd);
 int xpc_array_dup_fd(xpc_object_t object, size_t index);
 void xpc_array_set_connection(xpc_object_t object, size_t index,

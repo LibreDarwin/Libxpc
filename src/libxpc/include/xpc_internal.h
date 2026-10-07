@@ -88,6 +88,7 @@ typedef enum xpc_kind {
     XPC_KIND_RICH_ERROR,
     XPC_KIND_MACH_RECV,
     XPC_KIND_PEER_REQUIREMENT,
+    XPC_KIND_POINTER,
     XPC_KIND_COUNT,
 } xpc_kind_t;
 
@@ -101,6 +102,8 @@ typedef bool (*xpc_array_applier_t)(size_t index, xpc_object_t value);
 typedef bool (*xpc_dictionary_applier_t)(const char *key, xpc_object_t value);
 typedef void (*xpc_dictionary_applier_f_t)(const char *key,
     xpc_object_t value, void *context);
+typedef bool (*xpc_array_applier_function_t)(size_t index, xpc_object_t value,
+    void *context);
 
 struct _xpc_object_s {
     xpc_type_t isa;             /* one of the _xpc_type_* singletons */
@@ -127,6 +130,7 @@ typedef struct _xpc_scalar_s {
         uint64_t u64;
         double dbl;
         int64_t date_ns;
+        void *ptr;
     } v;
 } xpc_scalar_t;
 
@@ -246,6 +250,7 @@ struct _xpc_connection_s {
     xpc_finalizer_t finalizer;
     void *context;
     void *target_queue;             /* dispatch_queue_t, stored only */
+    bool event_channel;             /* xpc_connection_set_event_channel() */
 
     /* Peer identity, captured from the first received trailer. */
     bool have_peer_audit;
@@ -386,6 +391,7 @@ extern const struct _xpc_type_s _xpc_type_fd;
 extern const struct _xpc_type_s _xpc_type_rich_error;
 extern const struct _xpc_type_s _xpc_type_mach_recv;
 extern const struct _xpc_type_s _xpc_type_peer_requirement;
+extern const struct _xpc_type_s _xpc_type_pointer;
 
 extern xpc_object_t _xpc_bool_true;
 extern xpc_object_t _xpc_bool_false;
