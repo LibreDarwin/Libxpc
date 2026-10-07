@@ -196,6 +196,17 @@ _xpc_array_set_string
 _xpc_array_set_uint64
 _xpc_array_set_uuid
 _xpc_array_set_value
+_xpc_binprefs_add
+_xpc_binprefs_alloc
+_xpc_binprefs_copy
+_xpc_binprefs_copy_description
+_xpc_binprefs_count
+_xpc_binprefs_cpu_subtype
+_xpc_binprefs_cpu_type
+_xpc_binprefs_equal
+_xpc_binprefs_init
+_xpc_binprefs_is_noop
+_xpc_binprefs_set_psattr
 _xpc_bool_create
 _xpc_bool_get_value
 _xpc_bool_set_value

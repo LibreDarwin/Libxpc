@@ -207,6 +207,18 @@ typedef struct _xpc_dictionary_s {
     void *reply_finalizer_ctx;
 } xpc_dictionary_t;
 
+/*
+ * Binary architecture preferences (xpc_binprefs SPI): a plain 36-byte
+ * block of up to four (cpu_type, cpu_subtype) pairs plus a live count.
+ * The layout is pinned to Apple's so xpc_binprefs_set_psattr can hand
+ * the arrays straight to posix_spawnattr_setarchpref_np().
+ */
+struct _xpc_binprefs_s {
+    int32_t xb_cpu_types[4];    /* offset 0: types       */
+    int32_t xb_cpu_subtypes[4]; /* offset 16: subtypes   */
+    uint32_t xb_count;          /* offset 32: live count */
+};
+
 typedef struct _xpc_error_s {
     struct _xpc_object_s hdr;
     char *desc;         /* human-readable failure message */

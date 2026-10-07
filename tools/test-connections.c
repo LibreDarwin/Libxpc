@@ -1063,6 +1063,82 @@ main(void)
         }
     }
 
+    {
+        /* xpc_binprefs SPI: allocation, add/overflow, the Apple equality
+         * quirks, the "%d: [t.s, ...]" description, and the posix_spawnattr
+         * bridge.  The abort() paths (out-of-range index, failing
+         * setarchpref) are not exercised. */
+        xpc_binprefs_t bp = xpc_binprefs_alloc();
+        check(bp != NULL, "spi: binprefs alloc");
+        check(xpc_binprefs_count(bp) == 0, "spi: binprefs fresh count");
+
+        xpc_binprefs_add(bp, 7, 3);          /* x86_64 / x86_64_ALL */
+        xpc_binprefs_add(bp, 12, 0);         /* arm64 / arm64       */
+        xpc_binprefs_add(bp, 0x7fffffff, 1024);
+        check(xpc_binprefs_count(bp) == 3, "spi: binprefs add count");
+        check(xpc_binprefs_cpu_type(bp, 0) == 7,
+            "spi: binprefs cpu_type[0]");
+        check(xpc_binprefs_cpu_subtype(bp, 0) == 3,
+            "spi: binprefs cpu_subtype[0]");
+        check(xpc_binprefs_cpu_type(bp, 1) == 12,
+            "spi: binprefs cpu_type[1]");
+        check(xpc_binprefs_cpu_type(bp, 2) == 0x7fffffff,
+            "spi: binprefs cpu_type[2]");
+
+        xpc_binprefs_add(bp, 7, 3);          /* fills slot 4 -> count 4 */
+        xpc_binprefs_add(bp, 100, 100);      /* dropped: block is full   */
+        check(xpc_binprefs_count(bp) == 4, "spi: binprefs overflow keeps count");
+        check(xpc_binprefs_cpu_type(bp, 3) == 7, "spi: binprefs slot 4 kept");
+
+        xpc_binprefs_t empty = xpc_binprefs_alloc();
+        xpc_binprefs_t any = xpc_binprefs_alloc();
+        xpc_binprefs_add(any, -1, 0);        /* CPU_TYPE_ANY */
+        check(xpc_binprefs_is_noop(empty), "spi: binprefs empty is noop");
+        /* Apple quirk: is_noop() is true unless the first entry is
+         * CPU_TYPE_ANY (-1), so a concrete first entry is also "noop". */
+        check(xpc_binprefs_is_noop(bp), "spi: binprefs concrete first entry is noop");
+        check(!xpc_binprefs_is_noop(any), "spi: binprefs CPU_TYPE_ANY not noop");
+
+        xpc_binprefs_t c = xpc_binprefs_copy(bp);
+        check(c != NULL && c != bp, "spi: binprefs copy is a new block");
+        check(xpc_binprefs_equal(bp, c), "spi: binprefs copy equals source");
+        check(!xpc_binprefs_equal(bp, any), "spi: binprefs distinct unequal");
+        check(xpc_binprefs_equal(empty, empty), "spi: binprefs empty equals empty");
+        check(!xpc_binprefs_equal(NULL, NULL), "spi: binprefs NULL,NULL unequal");
+        check(xpc_binprefs_equal(NULL, bp), "spi: binprefs one-sided NULL equal");
+        check(xpc_binprefs_equal(bp, NULL), "spi: binprefs other one-sided NULL equal");
+
+        char *d = xpc_binprefs_copy_description(NULL);
+        check(d && strcmp(d, "(null)") == 0, "spi: binprefs NULL description");
+        free(d);
+        d = xpc_binprefs_copy_description(empty);
+        check(d && strcmp(d, "0: []") == 0, "spi: binprefs empty description");
+        free(d);
+        d = xpc_binprefs_copy_description(bp);
+        check(d && strcmp(d,
+            "4: [7.3, 12.0, 2147483647.1024, 7.3]") == 0,
+            "spi: binprefs description format");
+        free(d);
+
+        posix_spawnattr_t sa;
+        if (posix_spawnattr_init(&sa) == 0) {
+            xpc_binprefs_t psp = xpc_binprefs_alloc();
+            xpc_binprefs_add(psp, 7, 3);
+            xpc_binprefs_add(psp, 12, 0);
+            xpc_binprefs_set_psattr(psp, &sa);
+            check(1, "spi: binprefs set_psattr accepted");
+            posix_spawnattr_destroy(&sa);
+            free(psp);
+        } else {
+            check(0, "spi: binprefs set_psattr (posix_spawnattr_init)");
+        }
+
+        free(bp);
+        free(c);
+        free(empty);
+        free(any);
+    }
+
     /* --- xpc_main: service runloop (final, in-process) ------------------ */
 
     /* xpc_main() never returns, so it runs last on the main thread while a

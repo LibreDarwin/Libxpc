@@ -52,6 +52,7 @@
 #include <time.h>
 #include <uuid/uuid.h>
 #include <mach/mach.h>
+#include <spawn.h>
 #if __has_include(<bsm/audit.h>)
 #include <bsm/audit.h>
 #endif
@@ -630,6 +631,40 @@ void xpc_set_event_stream_handler(const char *stream,
  */
 void xpc_transaction_begin(void);
 void xpc_transaction_end(void);
+
+#pragma mark - Binary preferences
+
+/*
+ * xpc_binprefs_t records up to four (cpu_type, cpu_subtype) architecture
+ * preferences for a posix_spawn.  Mirrors Apple's xpc_binprefs SPI; the
+ * block is a plain 36-byte struct, not an XPC object.
+ *
+ * Semantics are pinned to Apple's implementation:
+ *  - xpc_binprefs_add() silently drops entries once four are recorded;
+ *  - indexing past the recorded count (xpc_binprefs_cpu_type/_subtype) is
+ *    a caller error and aborts, as does a non-zero return from
+ *    posix_spawnattr_setarchpref_np() in xpc_binprefs_set_psattr();
+ *  - xpc_binprefs_equal(NULL, NULL) is false, but compares equal when
+ *    exactly one side is NULL (both quirks from Apple);
+ *  - xpc_binprefs_is_noop() is true when the block is empty OR its first
+ *    entry is a concrete type, and false only when the first entry is
+ *    CPU_TYPE_ANY (-1) — an Apple quirk, mirrored exactly.
+ */
+typedef struct _xpc_binprefs_s *xpc_binprefs_t;
+
+xpc_binprefs_t xpc_binprefs_alloc(void);
+void xpc_binprefs_init(xpc_binprefs_t binprefs);
+xpc_binprefs_t xpc_binprefs_copy(xpc_binprefs_t binprefs);
+void xpc_binprefs_add(xpc_binprefs_t binprefs, int32_t cpu_type,
+    int32_t cpu_subtype);
+uint32_t xpc_binprefs_count(xpc_binprefs_t binprefs);
+int32_t xpc_binprefs_cpu_type(xpc_binprefs_t binprefs, uint32_t index);
+int32_t xpc_binprefs_cpu_subtype(xpc_binprefs_t binprefs, uint32_t index);
+bool xpc_binprefs_equal(xpc_binprefs_t a, xpc_binprefs_t b);
+char *xpc_binprefs_copy_description(xpc_binprefs_t binprefs);
+bool xpc_binprefs_is_noop(xpc_binprefs_t binprefs);
+void xpc_binprefs_set_psattr(xpc_binprefs_t binprefs,
+    posix_spawnattr_t *psattr);
 
 #ifdef __cplusplus
 }
