@@ -1267,6 +1267,140 @@ main(void)
         free(b);
     }
 
+    /* --- xpc_dictionary SPI --------------------------------------------- */
+    {
+        extern void xpc_dictionary_attach_reply_context(xpc_object_t dict,
+            mach_port_t reply_port, uint8_t reply_disposition);
+
+        xpc_object_t sd, rp, got, content, req, reply;
+        mach_port_t prt, prt2;
+        int sink = 42;
+        char *desc;
+
+        if (mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE,
+            &prt) != KERN_SUCCESS) prt = MACH_PORT_NULL;
+        if (mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE,
+            &prt2) != KERN_SUCCESS) prt2 = MACH_PORT_NULL;
+
+        /* set_pointer / get_pointer round trip + type gating */
+        sd = xpc_dictionary_create(NULL, NULL, 0);
+        xpc_dictionary_set_pointer(sd, "p", &sink);
+        got = (xpc_object_t)xpc_dictionary_get_pointer(sd, "p");
+        check(got != NULL && xpc_pointer_get_value(got) == &sink,
+            "spi: dict pointer set/get round trip");
+        check(xpc_dictionary_get_pointer(sd, "absent") == NULL,
+            "spi: dict get_pointer missing key -> NULL");
+        xpc_dictionary_set_string(sd, "s", "not-a-pointer");
+        check(xpc_dictionary_get_pointer(sd, "s") == NULL,
+            "spi: dict get_pointer non-pointer value -> NULL");
+
+        /* set_value_with_key_string_cache (cache arg ignored by port) */
+        content = xpc_string_create("cached-v");
+        xpc_dictionary_set_value_with_key_string_cache(sd, "ck", content,
+            xpc_string_create("cache-token"));
+        check(xpc_dictionary_get_value(sd, "ck") == content,
+            "spi: dict set_value_with_key_string_cache stores");
+        xpc_dictionary_set_value_with_key_string_cache(sd, "ck0", content,
+            NULL);
+        check(xpc_dictionary_get_value(sd, "ck0") == content,
+            "spi: dict set_value_with_key_string_cache NULL cache");
+        xpc_release(content);
+
+        /* extract_mach_send / extract_mach_recv single-use semantics */
+        xpc_dictionary_set_mach_send(sd, "ms", prt);
+        check(_xpc_dictionary_extract_mach_send(sd, "ms") == prt,
+            "spi: dict extract_mach_send moves right");
+        check(_xpc_dictionary_extract_mach_send(sd, "ms") == MACH_PORT_NULL,
+            "spi: dict extract_mach_send twice -> NULL");
+        xpc_dictionary_set_mach_recv(sd, "mr", prt2);
+        check(xpc_dictionary_extract_mach_recv(sd, "mr") == prt2,
+            "spi: dict extract_mach_recv moves right");
+        check(xpc_dictionary_extract_mach_recv(sd, "mr") == MACH_PORT_NULL,
+            "spi: dict extract_mach_recv twice -> NULL");
+        check(xpc_dictionary_extract_mach_recv(sd, "absent") == MACH_PORT_NULL,
+            "spi: dict extract_mach_recv missing -> NULL");
+
+        /* reply-with-port mint + reply-port/extract + transaction = NULL */
+        rp = _xpc_dictionary_create_reply_with_port(prt);
+        check(rp != NULL, "spi: dict create_reply_with_port");
+        check(_xpc_dictionary_extract_reply_port(rp) == prt,
+            "spi: dict extract_reply_port round trip");
+        check(_xpc_dictionary_get_transaction(sd) == NULL &&
+            _xpc_dictionary_get_transaction(rp) == NULL,
+            "spi: dict get_transaction always NULL");
+        check(_xpc_dictionary_extract_reply_port(sd) == MACH_PORT_NULL,
+            "spi: dict extract_reply_port on plain dict -> NULL");
+
+        /* reply-msg-id trio (mode 2 reply; plain dict is inert) */
+        check(_xpc_dictionary_get_reply_msg_id(rp) == 0,
+            "spi: dict get_reply_msg_id initial 0");
+        _xpc_dictionary_set_reply_msg_id(rp, 7);
+        check(_xpc_dictionary_get_reply_msg_id(rp) == 7,
+            "spi: dict set/get_reply_msg_id");
+        check(_xpc_dictionary_extract_reply_msg_id(rp) == 7,
+            "spi: dict extract_reply_msg_id returns value");
+        check(_xpc_dictionary_get_reply_msg_id(rp) == 0,
+            "spi: dict extract_reply_msg_id clears tag");
+        _xpc_dictionary_set_reply_msg_id(sd, 9);
+        check(_xpc_dictionary_get_reply_msg_id(sd) == 0,
+            "spi: dict set_reply_msg_id inert on plain dict");
+
+        /* remote connection: attaches only to a mode-1 request */
+        req = xpc_dictionary_create(NULL, NULL, 0);
+        xpc_dictionary_attach_reply_context(req, prt,
+            MACH_MSG_TYPE_MAKE_SEND_ONCE);
+        xpc_connection_t conn = xpc_connection_create_mach_service(
+            "xpc.test.dictspi", NULL, 0);
+        check(conn != NULL, "spi: dict remote conn object");
+        _xpc_dictionary_set_remote_connection(req, conn);
+        check(xpc_dictionary_get_connection(req) == conn,
+            "spi: dict set/get_remote_connection round trip");
+        _xpc_dictionary_set_remote_connection(sd, conn);
+        check(xpc_dictionary_get_connection(sd) == NULL,
+            "spi: dict set_remote_connection inert on plain dict");
+        check(xpc_dictionary_get_connection(xpc_null_create()) == NULL,
+            "spi: dict get_connection non-dict -> NULL");
+        if (conn) xpc_release((xpc_object_t)conn);
+
+        /* send_reply_4SWIFT: mode-2 reply shipped as-is; capability consumed */
+        reply = _xpc_dictionary_create_reply_with_port(prt2);
+        check(xpc_dictionary_expects_reply(req), "spi: dict 4SWIFT req expects reply");
+        check(xpc_dictionary_expects_reply(reply), "spi: dict 4SWIFT reply usable");
+        xpc_dictionary_send_reply_4SWIFT(req, reply);
+        check(xpc_get_type(reply) == &_xpc_type_dictionary,
+            "spi: dict 4SWIFT passthrough keeps reply object alive");
+        check(_xpc_dictionary_extract_reply_port(reply) == MACH_PORT_NULL,
+            "spi: dict 4SWIFT passthrough consumed reply capability");
+
+        /* send_reply_4SWIFT: mode-0 reply copied into a fresh reply; the
+         * source request's reply context is consumed by create_reply. */
+        content = xpc_dictionary_create(NULL, NULL, 0);
+        xpc_dictionary_set_string(content, "k", "v");
+        xpc_dictionary_send_reply_4SWIFT(req, content);
+        check(xpc_dictionary_get_string(content, "k") != NULL,
+            "spi: dict 4SWIFT copy leaves source dict intact");
+        check(!xpc_dictionary_expects_reply(req),
+            "spi: dict 4SWIFT copy consumes request context");
+        xpc_dictionary_send_reply_4SWIFT(xpc_null_create(), content);
+        xpc_dictionary_send_reply_4SWIFT(req, xpc_null_create());
+        xpc_release(content);
+        xpc_release(reply);
+        xpc_release(req);
+
+        /* copy_basic_description: malloc'd dict dump contains a set key */
+        xpc_dictionary_set_string(sd, "basic", "key");
+        desc = xpc_dictionary_copy_basic_description(sd);
+        check(desc != NULL && strstr(desc, "basic") != NULL,
+            "spi: dict copy_basic_description contains key");
+        free(desc);
+        xpc_release(sd);
+        xpc_release(rp);
+
+        mach_port_mod_refs(mach_task_self(), prt, MACH_PORT_RIGHT_RECEIVE, -1);
+        if (prt2 != MACH_PORT_NULL)
+            mach_port_mod_refs(mach_task_self(), prt2, MACH_PORT_RIGHT_RECEIVE, -1);
+    }
+
     /* --- xpc_main: service runloop (final, in-process) ------------------ */
 
     /* xpc_main() never returns, so it runs last on the main thread while a

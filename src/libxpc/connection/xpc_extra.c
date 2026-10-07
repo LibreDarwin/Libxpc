@@ -262,6 +262,12 @@ xpc_dictionary_create_reply(xpc_object_t original)
     r->msg_mode = 2;
     r->reply_port = o->reply_port;
     r->reply_disposition = o->reply_disposition;
+    r->reply_msg_id = o->reply_msg_id;
+    r->has_reply_msg_id = o->has_reply_msg_id;
+    r->remote_connection = o->remote_connection;
+    if (r->remote_connection) {
+        xpc_retain((xpc_object_t)r->remote_connection);
+    }
     /* Consumed: only one reply may be minted from *original. */
     o->msg_mode = 0;
     o->reply_port = MACH_PORT_NULL;
@@ -298,6 +304,8 @@ xpc_dictionary_handoff_reply(xpc_object_t reply)
     hh->msg_mode = 2;
     hh->reply_port = d->reply_port;
     hh->reply_disposition = d->reply_disposition;
+    hh->reply_msg_id = d->reply_msg_id;
+    hh->has_reply_msg_id = d->has_reply_msg_id;
     /* The capability moves; the source keeps none to hand again. */
     d->msg_mode = 0;
     d->reply_port = MACH_PORT_NULL;
@@ -321,10 +329,11 @@ xpc_dictionary_get_remote_connection(xpc_object_t xdict)
 {
     /* Apple returns the connection a dictionary arrived on, which only a
      * message received by a connection event handler -- or one minted by
-     * xpc_dictionary_create_reply() -- has.  See the note there: none of
-     * our dictionaries have one. */
+     * xpc_dictionary_create_reply() -- has.  Set via _xpc_dictionary_set_remote_connection;
+     * retained by the dictionary (see xpc_dictionary_s). */
     if (!XPC_OBJECT_CHECK(xdict, &_xpc_type_dictionary)) return NULL;
-    return NULL;
+    xpc_dictionary_t *d = XPC_CAST(xpc_dictionary_t, xdict);
+    return (xpc_object_t)d->remote_connection;
 }
 
 char *

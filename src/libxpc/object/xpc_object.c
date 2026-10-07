@@ -119,6 +119,9 @@ xpc_release(xpc_object_t obj)
             /* An unconverted request right or unsent reply loses its capability. */
             mach_port_deallocate(mach_task_self(), d->reply_port);
         }
+        if (d->remote_connection) {
+            xpc_release((xpc_object_t)d->remote_connection);
+        }
         break;
     }
     case XPC_KIND_ERROR: {

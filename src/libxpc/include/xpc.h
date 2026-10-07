@@ -708,6 +708,56 @@ void _xpc_spawnattr_binprefs_pack(void *buf, xpc_binprefs_t binprefs,
 xpc_binprefs_t _xpc_spawnattr_binprefs_unpack(const void *buf,
     size_t limit);
 
+#pragma mark - Dictionary SPI
+
+/*
+ * Non-public xpc_dictionary_* accessors, ported from Apple's libxpc.
+ * Semantics follow the host dylib (see the xpc_dictionary_spi.c notes):
+ *
+ *  - set_pointer/get_pointer wrap a plain pointer in an xpc_pointer
+ *    object; get returns that OBJECT (unwrapped via xpc_pointer_get_value),
+ *    NULL for a missing or non-pointer value;
+ *  - set_value_with_key_string_cache accepts and ignores its cache object
+ *    (this tree has no string-cache type) and stores exactly like
+ *    xpc_dictionary_set_value();
+ *  - extract_mach_send/extract_mach_recv are single-use: they move the
+ *    wrapped right to the caller and leave the object an inert shell
+ *    (Apple traps a double extract; this port returns MACH_PORT_NULL);
+ *  - create_reply_with_port mints a reply-mode dictionary with a caller
+ *    supplied reply port; extract_reply_port reads it back out;
+ *  - get/set/extract_reply_msg_id tag a uint32 message id onto a
+ *    reply-context dictionary (storage only — it never reaches the wire);
+ *    extract clears the tag;
+ *  - get_transaction always returns NULL (no message-transaction object
+ *    exists in this tree);
+ *  - send_reply_4SWIFT sends a reply-mode dict as-is, or copies a plain
+ *    dict into a fresh reply built from `request`'s context and sends;
+ *  - get_connection/_set_remote_connection read/tag the connection a
+ *    received request arrived on (set requires a mode-1 dict);
+ *  - copy_basic_description returns a malloc'd description of the dict.
+ */
+char *xpc_dictionary_copy_basic_description(xpc_object_t xdict);
+void xpc_dictionary_set_pointer(xpc_object_t xdict, const char *key,
+    void *ptr);
+void *xpc_dictionary_get_pointer(xpc_object_t xdict, const char *key);
+void xpc_dictionary_set_value_with_key_string_cache(xpc_object_t xdict,
+    const char *key, xpc_object_t value, xpc_object_t string_cache);
+mach_port_t xpc_dictionary_extract_mach_recv(xpc_object_t xdict,
+    const char *key);
+mach_port_t _xpc_dictionary_extract_mach_send(xpc_object_t xdict,
+    const char *key);
+xpc_object_t _xpc_dictionary_create_reply_with_port(mach_port_t port);
+mach_port_t _xpc_dictionary_extract_reply_port(xpc_object_t xdict);
+uint32_t _xpc_dictionary_get_reply_msg_id(xpc_object_t xdict);
+void _xpc_dictionary_set_reply_msg_id(xpc_object_t xdict, uint32_t msg_id);
+uint32_t _xpc_dictionary_extract_reply_msg_id(xpc_object_t xdict);
+xpc_object_t _xpc_dictionary_get_transaction(xpc_object_t xdict);
+void xpc_dictionary_send_reply_4SWIFT(xpc_object_t request,
+    xpc_object_t reply);
+xpc_connection_t xpc_dictionary_get_connection(xpc_object_t xdict);
+void _xpc_dictionary_set_remote_connection(xpc_object_t xdict,
+    xpc_connection_t connection);
+
 #ifdef __cplusplus
 }
 #endif

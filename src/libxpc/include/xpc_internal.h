@@ -205,6 +205,13 @@ typedef struct _xpc_dictionary_s {
     void (*reply_finalizer)(void *context); /* handoff_reply_f(): invoked when
                                              * this dict is released */
     void *reply_finalizer_ctx;
+    uint32_t reply_msg_id;      /* Dictionary SPI: message id tagged on a
+                                 * reply context (xpc_dictionary_set_reply_msg_id).
+                                 * Envelope metadata, never serialized. */
+    bool has_reply_msg_id;      /* set once a msg id has been tagged */
+    struct _xpc_connection_s *remote_connection; /* Dictionary SPI: the
+                                 * connection a request arrived on, when a
+                                 * connection handoff tagged it.  Retained. */
 } xpc_dictionary_t;
 
 /*
