@@ -171,6 +171,9 @@ xpc_release(xpc_object_t obj)
     case XPC_KIND_LISTENER:
         xpc_listener_dispose((xpc_listener_t)obj);
         break;
+    case XPC_KIND_ACTIVITY:
+        xpc_activity_dispose((xpc_activity_t)(void *)obj);
+        break;
     case XPC_KIND_RICH_ERROR: {
         struct _xpc_rich_error_s *r = (struct _xpc_rich_error_s *)(void *)obj;
         free(r->desc);

@@ -143,6 +143,111 @@ XPC_EXPORT XPC_NONNULL1
 void
 xpc_activity_unregister(const char *identifier);
 
+/*!
+ * @typedef xpc_activity_eligibility_changed_handler_t
+ * The block invoked when an activity's eligibility changes.
+ */
+XPC_NONNULL1
+typedef void (^xpc_activity_eligibility_changed_handler_t)(
+	xpc_activity_t activity);
+
+/*!
+ * @function xpc_activity_add_eligibility_changed_handler
+ * Adds a handler that is invoked when the given activity's eligibility
+ * changes.
+ */
+XPC_EXPORT XPC_NONNULL1 XPC_NONNULL2
+void
+xpc_activity_add_eligibility_changed_handler(xpc_activity_t activity,
+	xpc_activity_eligibility_changed_handler_t handler);
+
+/*!
+ * @function xpc_activity_remove_eligibility_changed_handler
+ * Removes a previously added eligibility-changed handler.
+ */
+XPC_EXPORT XPC_NONNULL1 XPC_NONNULL2
+void
+xpc_activity_remove_eligibility_changed_handler(xpc_activity_t activity,
+	xpc_activity_eligibility_changed_handler_t handler);
+
+/*!
+ * @function xpc_activity_set_state_with_completion_status
+ * Transitions the activity to a new state. If the state is
+ * XPC_ACTIVITY_STATE_DONE, the activity's completion status is set and
+ * may be observed by the system. Returns whether the transition was
+ * accepted.
+ */
+XPC_EXPORT XPC_WARN_RESULT XPC_NONNULL1
+bool
+xpc_activity_set_state_with_completion_status(xpc_activity_t activity,
+	xpc_activity_state_t state, long status);
+
+/*!
+ * @function xpc_activity_set_completion_status
+ * Sets the completion status of the activity as it finishes.
+ */
+XPC_EXPORT XPC_WARN_RESULT XPC_NONNULL1
+bool
+xpc_activity_set_completion_status(xpc_activity_t activity, long status);
+
+/*!
+ * @function xpc_activity_should_be_data_budgeted
+ * Marks whether the activity should be budgeted against the data budget.
+ */
+XPC_EXPORT XPC_NONNULL1
+void
+xpc_activity_should_be_data_budgeted(xpc_activity_t activity, bool budgeted);
+
+/*!
+ * @function xpc_activity_defer_until_percentage
+ * Requests that the activity be deferred until the system reaches the
+ * given percentage. Returns whether the request was granted.
+ */
+XPC_EXPORT XPC_WARN_RESULT XPC_NONNULL1
+bool
+xpc_activity_defer_until_percentage(xpc_activity_t activity, long percentage);
+
+/*!
+ * @function xpc_activity_defer_until_network_change
+ * Requests that the activity be deferred until the network changes.
+ * Returns whether the request was granted.
+ */
+XPC_EXPORT XPC_WARN_RESULT XPC_NONNULL1
+bool
+xpc_activity_defer_until_network_change(xpc_activity_t activity);
+
+/*!
+ * @function xpc_activity_get_percentage
+ * Returns the current battery percentage, or 0 if undeterminable.
+ */
+XPC_EXPORT XPC_WARN_RESULT XPC_NONNULL1
+long
+xpc_activity_get_percentage(xpc_activity_t activity);
+
+/*!
+ * @function xpc_activity_set_network_threshold
+ * Sets the percentage at which the activity may defer for network reasons.
+ */
+XPC_EXPORT XPC_NONNULL1
+void
+xpc_activity_set_network_threshold(xpc_activity_t activity, long percentage);
+
+/*!
+ * @function xpc_activity_copy_identifier
+ * Returns a copy of the identifier for the given activity.
+ */
+XPC_EXPORT XPC_WARN_RESULT XPC_RETURNS_RETAINED XPC_NONNULL1
+char * _Nullable
+xpc_activity_copy_identifier(xpc_activity_t activity);
+
+/*!
+ * @function xpc_activity_copy_dispatch_queue
+ * Returns the dispatch queue the activity executes on, or NULL.
+ */
+XPC_EXPORT XPC_WARN_RESULT XPC_RETURNS_RETAINED XPC_NONNULL1
+dispatch_queue_t _Nullable
+xpc_activity_copy_dispatch_queue(xpc_activity_t activity);
+
 __END_DECLS
 XPC_ASSUME_NONNULL_END
 

@@ -91,6 +91,7 @@ typedef void (*xpc_finalizer_t)(void *context);
  * xpc_internal.h (public consumers see only the incomplete tag). */
 typedef struct _xpc_endpoint_s *xpc_endpoint_t;
 typedef struct _xpc_connection_s *xpc_connection_t;
+typedef struct _xpc_activity_s *xpc_activity_t;
 typedef struct _xpc_session_s *xpc_session_t;
 typedef struct _xpc_listener_s *xpc_listener_t;
 typedef struct _xpc_rich_error_s *xpc_rich_error_t;
@@ -255,11 +256,73 @@ xpc_object_t xpc_endpoint_copy_listener_port(xpc_object_t endpoint);
 
 #pragma mark - Activity
 
-xpc_object_t xpc_activity_create(xpc_object_t connection);
-xpc_object_t xpc_activity_create_from_endpoint(xpc_object_t endpoint);
-void xpc_activity_resume(xpc_object_t activity);
-void xpc_activity_suspend(xpc_object_t activity);
-void xpc_activity_cancel(xpc_object_t activity);
+typedef void (^xpc_activity_handler_t)(xpc_activity_t activity);
+typedef void (^xpc_activity_eligibility_changed_handler_t)(
+    xpc_activity_t activity);
+
+/* Dictionary keys for the XPC activity criteria dictionary. */
+#define XPC_ACTIVITY_INTERVAL "XPC_ACTIVITY_INTERVAL"
+#define XPC_ACTIVITY_REPEATING "XPC_ACTIVITY_REPEATING"
+#define XPC_ACTIVITY_DELAY "XPC_ACTIVITY_DELAY"
+#define XPC_ACTIVITY_GRACE_PERIOD "XPC_ACTIVITY_GRACE_PERIOD"
+
+/* Predefined interval constants (seconds). */
+#define XPC_ACTIVITY_INTERVAL_1_MIN (1 * 60)
+#define XPC_ACTIVITY_INTERVAL_5_MIN (5 * 60)
+#define XPC_ACTIVITY_INTERVAL_15_MIN (15 * 60)
+#define XPC_ACTIVITY_INTERVAL_30_MIN (30 * 60)
+#define XPC_ACTIVITY_INTERVAL_1_HOUR (60 * 60)
+#define XPC_ACTIVITY_INTERVAL_4_HOURS (4 * 60 * 60)
+#define XPC_ACTIVITY_INTERVAL_8_HOURS (8 * 60 * 60)
+#define XPC_ACTIVITY_INTERVAL_1_DAY (24 * 60 * 60)
+#define XPC_ACTIVITY_INTERVAL_7_DAYS (7 * 24 * 60 * 60)
+
+#define XPC_ACTIVITY_PRIORITY "XPC_ACTIVITY_PRIORITY"
+#define XPC_ACTIVITY_PRIORITY_MAINTENANCE "XPC_ACTIVITY_PRIORITY_MAINTENANCE"
+#define XPC_ACTIVITY_PRIORITY_UTILITY "XPC_ACTIVITY_PRIORITY_UTILITY"
+#define XPC_ACTIVITY_ALLOW_BATTERY "XPC_ACTIVITY_ALLOW_BATTERY"
+#define XPC_ACTIVITY_REQUIRE_SCREEN_SLEEP "XPC_ACTIVITY_REQUIRE_SCREEN_SLEEP" /* bool */
+#define XPC_ACTIVITY_PREVENT_DEVICE_SLEEP "XPC_ACTIVITY_PREVENT_DEVICE_SLEEP" /* bool */
+
+/* Pass this as the criteria to xpc_activity_register to check in with an
+ * existing activity instead of installing fresh criteria. */
+extern const xpc_object_t XPC_ACTIVITY_CHECK_IN;
+
+enum {
+    XPC_ACTIVITY_STATE_CHECK_IN,
+    XPC_ACTIVITY_STATE_WAIT,
+    XPC_ACTIVITY_STATE_RUN,
+    XPC_ACTIVITY_STATE_DEFER,
+    XPC_ACTIVITY_STATE_CONTINUE,
+    XPC_ACTIVITY_STATE_DONE,
+};
+typedef long xpc_activity_state_t;
+
+void xpc_activity_register(const char *identifier, xpc_object_t criteria,
+    xpc_activity_handler_t handler);
+void xpc_activity_unregister(const char *identifier);
+xpc_object_t xpc_activity_copy_criteria(xpc_activity_t activity);
+void xpc_activity_set_criteria(xpc_activity_t activity, xpc_object_t criteria);
+xpc_activity_state_t xpc_activity_get_state(xpc_activity_t activity);
+bool xpc_activity_set_state(xpc_activity_t activity, xpc_activity_state_t state);
+bool xpc_activity_set_state_with_completion_status(xpc_activity_t activity,
+    xpc_activity_state_t state, long status);
+bool xpc_activity_set_completion_status(xpc_activity_t activity, long status);
+bool xpc_activity_should_defer(xpc_activity_t activity);
+void xpc_activity_should_be_data_budgeted(xpc_activity_t activity,
+    bool budgeted);
+bool xpc_activity_defer_until_percentage(xpc_activity_t activity,
+    long percentage);
+bool xpc_activity_defer_until_network_change(xpc_activity_t activity);
+long xpc_activity_get_percentage(xpc_activity_t activity);
+void xpc_activity_set_network_threshold(xpc_activity_t activity,
+    long percentage);
+char *xpc_activity_copy_identifier(xpc_activity_t activity);
+dispatch_queue_t xpc_activity_copy_dispatch_queue(xpc_activity_t activity);
+void xpc_activity_add_eligibility_changed_handler(xpc_activity_t activity,
+    xpc_activity_eligibility_changed_handler_t handler);
+void xpc_activity_remove_eligibility_changed_handler(xpc_activity_t activity,
+    xpc_activity_eligibility_changed_handler_t handler);
 
 #pragma mark - Session
 

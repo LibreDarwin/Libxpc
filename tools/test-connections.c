@@ -109,6 +109,16 @@ wait_flag(volatile int *flag, long timeout_ms)
     return *flag != 0;
 }
 
+/* Poll <value> until it reaches <target> or timeout_ms elapses. */
+static bool
+wait_until(volatile int *value, int target, long timeout_ms)
+{
+    struct timespec head;
+    start_timer(&head);
+    while (*value < target && !timed_out(&head, timeout_ms)) usleep(2000);
+    return *value >= target;
+}
+
 /* --- server state (written by the server's rx thread) ---------------- */
 
 static volatile int server_saw_simpleroutine = 0;  /* send_message arrived */
@@ -578,6 +588,298 @@ main(void)
         failures++;
         printf("FAIL: anonymous: create_anonymous returned NULL\n");
     }
+
+    /* --- activity ------------------------------------------------------- */
+
+    /* Test A: non-repeating fire.  The handler runs with state RUN, DONE is
+     * accepted, and the (non-repeating) activity is terminal: copy_criteria
+     * answers NULL and further transitions are rejected. */
+    __block xpc_activity_t act = NULL;
+    __block volatile int act_fired = 0;
+    __block volatile int act_fires = 0;
+    __block volatile long act_state_in_handler = -1;
+    __block volatile int act_done_accepted = -1;
+    const char *act_id = "com.sunneva.hermetic.activity.test";
+
+    xpc_object_t act_criteria = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_activity_register(act_id, act_criteria, ^(xpc_activity_t a) {
+        if (!act) act = (xpc_activity_t)(void *)xpc_retain((xpc_object_t)a);
+        act_state_in_handler = xpc_activity_get_state(a);
+        act_done_accepted = xpc_activity_set_state(a,
+            XPC_ACTIVITY_STATE_DONE);
+        act_fired = 1;
+        act_fires++;
+    });
+    xpc_release(act_criteria);
+
+    check(wait_flag(&act_fired, 5000), "activity: handler fired");
+    check(act != NULL, "activity: handler received a live activity");
+    check(act_state_in_handler == XPC_ACTIVITY_STATE_RUN,
+        "activity: state is RUN during the handler");
+    check(act_done_accepted == 1,
+        "activity: set_state(DONE) accepted from RUN");
+    check(xpc_activity_get_state(act) == XPC_ACTIVITY_STATE_DONE,
+        "activity: state is DONE after transition");
+    check(xpc_activity_copy_criteria(act) == NULL,
+        "activity: copy_criteria NULL after non-repeating DONE");
+
+    /* Terminal-state rejections from the main thread. */
+    check(!xpc_activity_set_state(act, XPC_ACTIVITY_STATE_DONE),
+        "activity: set_state(DONE) rejected from DONE");
+    check(!xpc_activity_set_state(act, XPC_ACTIVITY_STATE_DEFER),
+        "activity: set_state(DEFER) rejected from DONE");
+
+    /* Test B: repeating activity.  DONE returns it to WAIT (not terminal),
+     * criteria survive, and there is no spontaneous re-fire while the
+     * interval has not elapsed. */
+    __block xpc_activity_t rep = NULL;
+    __block volatile int rep_fired = 0;
+    const char *rep_id = "com.sunneva.hermetic.activity.repeat";
+
+    xpc_object_t rep_criteria = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_bool(rep_criteria, XPC_ACTIVITY_REPEATING, true);
+    xpc_dictionary_set_uint64(rep_criteria, XPC_ACTIVITY_INTERVAL, 60);
+    xpc_activity_register(rep_id, rep_criteria, ^(xpc_activity_t a) {
+        if (!rep) rep = (xpc_activity_t)(void *)xpc_retain((xpc_object_t)a);
+        xpc_activity_set_state(a, XPC_ACTIVITY_STATE_DONE);
+        rep_fired++;
+    });
+    xpc_release(rep_criteria);
+
+    check(wait_flag(&rep_fired, 5000), "activity: repeating handler fired");
+    check(rep != NULL, "activity: repeating handle captured");
+    check(xpc_activity_get_state(rep) == XPC_ACTIVITY_STATE_WAIT,
+        "activity: state WAIT after repeating DONE");
+    check(xpc_activity_copy_criteria(rep) != NULL,
+        "activity: copy_criteria survives repeating DONE");
+    check(!xpc_activity_set_state(rep, XPC_ACTIVITY_STATE_DONE),
+        "activity: set_state(DONE) rejected from WAIT");
+    usleep(200000);
+    check(rep_fired == 1, "activity: no spontaneous re-fire (interval gate)");
+
+    /* Test C: DEFER from RUN is accepted and re-schedules exactly one more
+     * run, in which DONE completes the activity. */
+    __block volatile int def_fires = 0;
+    __block volatile int def_accept = -1;
+    const char *def_id = "com.sunneva.hermetic.activity.defer";
+
+    xpc_object_t def_criteria = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_activity_register(def_id, def_criteria, ^(xpc_activity_t a) {
+        if (def_fires == 0) {
+            def_accept = xpc_activity_set_state(a, XPC_ACTIVITY_STATE_DEFER);
+        } else {
+            xpc_activity_set_state(a, XPC_ACTIVITY_STATE_DONE);
+        }
+        def_fires++;
+    });
+    xpc_release(def_criteria);
+
+    check(wait_until(&def_fires, 2, 5000), "activity: DEFER re-scheduled");
+    check(def_accept == 1, "activity: set_state(DEFER) accepted from RUN");
+    check(def_fires == 2, "activity: DEFER produced exactly one re-fire");
+
+    /* Test D: RUN → CONTINUE accepted; CONTINUE is sticky (state CONTINUE,
+     * further CONTINUE rejected); a completion status is only legal with
+     * DONE; CONTINUE → DONE with status completes. */
+    __block volatile int cont_res = 0;
+    __block volatile int cont_sticky = -1;
+    __block volatile int cont_bad_status = -1;
+    __block volatile int cont_status_done = -1;
+    __block volatile long cont_state_after_continue = -1;
+    const char *cont_id = "com.sunneva.hermetic.activity.continue";
+
+    xpc_object_t cont_criteria = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_activity_register(cont_id, cont_criteria, ^(xpc_activity_t a) {
+        cont_res = xpc_activity_set_state(a, XPC_ACTIVITY_STATE_CONTINUE);
+        cont_state_after_continue = xpc_activity_get_state(a);
+        cont_sticky = xpc_activity_set_state(a, XPC_ACTIVITY_STATE_CONTINUE);
+        cont_bad_status = xpc_activity_set_state_with_completion_status(a,
+            XPC_ACTIVITY_STATE_DEFER, 7);
+        cont_status_done = xpc_activity_set_state_with_completion_status(a,
+            XPC_ACTIVITY_STATE_DONE, 7);
+        cont_res++;
+    });
+    xpc_release(cont_criteria);
+
+    check(wait_flag(&cont_res, 5000), "activity: CONTINUE handler ran");
+    check(cont_state_after_continue == XPC_ACTIVITY_STATE_CONTINUE,
+        "activity: state is CONTINUE after CONTINUE");
+    check(cont_sticky == 0,
+        "activity: set_state(CONTINUE) rejected from CONTINUE");
+    check(cont_bad_status == 0,
+        "activity: completion status rejected for non-DONE target");
+    check(cont_status_done == 1,
+        "activity: CONTINUE → DONE with completion status accepted");
+
+    /* Test E: CONTINUE → DEFER re-schedules, mirroring Test C. */
+    __block volatile int cd_fires = 0;
+    __block volatile int cd_defer_accept = -1;
+    const char *cd_id = "com.sunneva.hermetic.activity.continue-defer";
+
+    xpc_object_t cd_criteria = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_activity_register(cd_id, cd_criteria, ^(xpc_activity_t a) {
+        if (cd_fires == 0) {
+            xpc_activity_set_state(a, XPC_ACTIVITY_STATE_CONTINUE);
+            cd_defer_accept = xpc_activity_set_state(a,
+                XPC_ACTIVITY_STATE_DEFER);
+        } else {
+            xpc_activity_set_state(a, XPC_ACTIVITY_STATE_DONE);
+        }
+        cd_fires++;
+    });
+    xpc_release(cd_criteria);
+
+    check(wait_until(&cd_fires, 2, 5000),
+        "activity: CONTINUE → DEFER re-scheduled");
+    check(cd_defer_accept == 1,
+        "activity: set_state(DEFER) accepted from CONTINUE");
+
+    /* Test F: data-budget probes are deterministic no-ops. */
+    check(!xpc_activity_should_defer(act), "activity: should_defer is false");
+    check(xpc_activity_get_percentage(act) == 0,
+        "activity: get_percentage is 0");
+    check(!xpc_activity_defer_until_percentage(act, 50),
+        "activity: defer_until_percentage is false");
+    check(!xpc_activity_defer_until_network_change(act),
+        "activity: defer_until_network_change is false");
+    xpc_activity_set_network_threshold(act, 10);
+    xpc_activity_should_be_data_budgeted(act, true);
+    xpc_activity_should_be_data_budgeted(act, false);
+    check(1, "activity: data-budget setters accepted");
+    check(xpc_activity_copy_dispatch_queue(act) == NULL,
+        "activity: copy_dispatch_queue NULL (no libdispatch)");
+
+    /* Test G: set_criteria re-installs a completed activity and drives a
+     * fresh run. */
+    xpc_object_t gd = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_bool(gd, XPC_ACTIVITY_REPEATING, false);
+    xpc_activity_set_criteria(act, gd);
+    xpc_release(gd);
+    check(wait_until(&act_fires, 2, 5000),
+        "activity: set_criteria re-installed a completed activity");
+    check(act_state_in_handler == XPC_ACTIVITY_STATE_RUN,
+        "activity: re-installed criteria drove a fresh RUN");
+    check(act_done_accepted == 1,
+        "activity: original handler still answers re-fires");
+
+    /* Test H: CHECK_IN presents the current state without starting a run. */
+    __block volatile int checkin_seen = 0;
+    __block volatile long checkin_state = -1;
+    xpc_activity_register(act_id, XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t a) {
+        checkin_state = xpc_activity_get_state(a);
+        checkin_seen = 1;
+    });
+    check(wait_flag(&checkin_seen, 5000),
+        "activity: CHECK_IN presented to an existing registration");
+    check(checkin_state == XPC_ACTIVITY_STATE_DONE,
+        "activity: CHECK_IN presents current (DONE) state");
+
+    /* Test H2: a first-ever CHECK_IN mints an activity in CHECK_IN state; a
+     * subsequent set_criteria starts its first real run. */
+    __block volatile int ci_frames = 0;
+    __block volatile long ci_state0 = -1;
+    __block volatile long ci_state1 = -1;
+    __block xpc_activity_t ci_act = NULL;
+    const char *ci_id = "com.sunneva.hermetic.activity.checkin-first";
+
+    xpc_activity_register(ci_id, XPC_ACTIVITY_CHECK_IN, ^(xpc_activity_t a) {
+        if (!ci_act) ci_act = (xpc_activity_t)(void *)xpc_retain((xpc_object_t)a);
+        long st = xpc_activity_get_state(a);
+        if (ci_frames == 0) {
+            ci_state0 = st;
+        } else {
+            ci_state1 = st;
+            xpc_activity_set_state(a, XPC_ACTIVITY_STATE_DONE);
+        }
+        ci_frames++;
+    });
+    check(wait_until(&ci_frames, 1, 5000),
+        "activity: first CHECK_IN handler ran");
+    check(ci_state0 == XPC_ACTIVITY_STATE_CHECK_IN,
+        "activity: first CHECK_IN presents CHECK_IN state");
+    check(ci_frames == 1, "activity: CHECK_IN does not auto-start a run");
+
+    xpc_object_t ci_criteria = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_activity_set_criteria(ci_act, ci_criteria);
+    xpc_release(ci_criteria);
+    check(wait_until(&ci_frames, 2, 5000),
+        "activity: set_criteria started the first real run");
+    check(ci_state1 == XPC_ACTIVITY_STATE_RUN,
+        "activity: post-check-in run presented RUN");
+
+    /* Test I: eligibility handlers are notified on accepted transitions and
+     * can be removed by pointer. */
+    __block xpc_activity_t elig_act = NULL;
+    __block volatile int elig_frames = 0;
+    const char *elig_id = "com.sunneva.hermetic.activity.eligibility";
+
+    xpc_object_t elig_criteria = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_activity_register(elig_id, elig_criteria, ^(xpc_activity_t a) {
+        if (!elig_act) elig_act = (xpc_activity_t)(void *)xpc_retain((xpc_object_t)a);
+        xpc_activity_set_state(a, XPC_ACTIVITY_STATE_DONE);
+        elig_frames++;
+    });
+    xpc_release(elig_criteria);
+    check(wait_flag(&elig_frames, 5000),
+        "activity: eligibility driver handler ran");
+
+    __block volatile int elig_notify = 0;
+    xpc_activity_eligibility_changed_handler_t eh =
+        ^(xpc_activity_t a) { (void)a; elig_notify++; };
+    xpc_activity_add_eligibility_changed_handler(elig_act, eh);
+
+    xpc_object_t e2 = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_activity_set_criteria(elig_act, e2);
+    xpc_release(e2);
+    check(wait_until(&elig_frames, 2, 5000),
+        "activity: eligibility driver re-fired");
+    usleep(100000);
+    check(elig_notify == 1, "activity: eligibility handler notified");
+
+    xpc_activity_remove_eligibility_changed_handler(elig_act, eh);
+    xpc_object_t e3 = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_activity_set_criteria(elig_act, e3);
+    xpc_release(e3);
+    check(wait_until(&elig_frames, 3, 5000),
+        "activity: eligibility driver re-fired again");
+    usleep(100000);
+    check(elig_notify == 1, "activity: removed eligibility handler silent");
+
+    /* Test J: unregister drops the registration; re-register mints a fresh
+     * activity (a different object) that fires again. */
+    xpc_activity_unregister(act_id);
+    __block volatile int re_fired = 0;
+    __block xpc_activity_t re_act = NULL;
+    xpc_object_t red = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_activity_register(act_id, red, ^(xpc_activity_t a) {
+        if (!re_act) re_act = (xpc_activity_t)(void *)xpc_retain((xpc_object_t)a);
+        xpc_activity_set_state(a, XPC_ACTIVITY_STATE_DONE);
+        re_fired = 1;
+    });
+    xpc_release(red);
+    check(wait_flag(&re_fired, 5000),
+        "activity: re-register after unregister fires");
+    check(re_act != NULL && re_act != act,
+        "activity: unregister replaced the registration object");
+
+    /* identity round-trip and cleanup */
+    char *act_name = xpc_activity_copy_identifier(act);
+    check(act_name != NULL && strcmp(act_name, act_id) == 0,
+        "activity: copy_identifier round-trips");
+    free(act_name);
+
+    xpc_activity_unregister(rep_id);
+    xpc_activity_unregister(def_id);
+    xpc_activity_unregister(cont_id);
+    xpc_activity_unregister(cd_id);
+    xpc_activity_unregister(ci_id);
+    xpc_activity_unregister(elig_id);
+    xpc_activity_unregister(act_id);
+    xpc_release((xpc_object_t)act);
+    xpc_release((xpc_object_t)rep);
+    xpc_release((xpc_object_t)ci_act);
+    xpc_release((xpc_object_t)elig_act);
+    xpc_release((xpc_object_t)re_act);
 
     /* --- cancel semantics ---------------------------------------------- */
 

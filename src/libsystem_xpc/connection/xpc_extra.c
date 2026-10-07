@@ -94,29 +94,6 @@ xpc_dictionary_create_connection(xpc_object_t dict, const char *key)
     return (xpc_object_t)(void *)conn;
 }
 
-#pragma mark - Activity (out of Slice-C scope: no-op shells)
-
-xpc_object_t
-xpc_activity_create(xpc_object_t connection)
-{
-    (void)connection;
-    return xpc_null_create();
-}
-
-xpc_object_t
-xpc_activity_create_from_endpoint(xpc_object_t endpoint)
-{
-    (void)endpoint;
-    return xpc_null_create();
-}
-
-void
-xpc_activity_resume(xpc_object_t activity) { (void)activity; }
-void
-xpc_activity_suspend(xpc_object_t activity) { (void)activity; }
-void
-xpc_activity_cancel(xpc_object_t activity) { (void)activity; }
-
 #pragma mark - Typed dictionary accessors (declared in xpc.h)
 
 void

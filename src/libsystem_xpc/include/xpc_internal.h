@@ -317,6 +317,32 @@ struct _xpc_listener_s {
     bool cancelled;                 /* listener cancelled */
 };
 
+struct _xpc_activity_s {
+    struct _xpc_object_s hdr;
+    pthread_mutex_t lock;           /* serializes state, criteria, handlers,
+                                     * and scheduling gates */
+    char *identifier;               /* registered identifier, or NULL */
+    xpc_object_t criteria;          /* retained criteria dictionary (never the
+                                     * CHECK_IN sentinel) */
+    xpc_activity_handler_t handler; /* copied registration block, or NULL */
+    xpc_activity_state_t state;     /* CHECK_IN/WAIT/RUN/DEFER/CONTINUE/DONE */
+    bool completed;                 /* DONE on a non-repeating activity */
+    bool data_budgeted;             /* xpc_activity_should_be_data_budgeted */
+
+    /* Hermetic scheduling gates (poke-driven: no background timers).  A
+     * fire is enqueued when, at poke time, both gates have passed. */
+    uint64_t delay_until_ns;        /* CLOCK_MONOTONIC instant an initial
+                                     * XPC_ACTIVITY_DELAY elapses, or 0 */
+    uint64_t next_due_ns;           /* repeating: instant the next run is due
+                                     * (set after a DONE), or 0 */
+
+    /* Eligibility-changed handlers: the original block (for pointer-matched
+     * removal) alongside its retained copy. */
+    xpc_activity_eligibility_changed_handler_t *eligibility;
+    void **eligibility_orig;
+    size_t eligibility_count, eligibility_cap;
+};
+
 struct _xpc_rich_error_s {
     struct _xpc_object_s hdr;
     char *desc;         /* human-readable failure message */
@@ -446,6 +472,18 @@ xpc_connection_t xpc_connection_create_with_port(mach_port_t port,
 void xpc_connection_register_mach_service(const char *name, mach_port_t port);
 void xpc_connection_dispose(xpc_connection_t conn);
 void xpc_listener_dispose(xpc_listener_t listener);
+
+#pragma mark - Activity subsystem (xpc_activity.c)
+
+void xpc_activity_dispose(xpc_activity_t activity);
+
+/* Control-channel SPI from Apple (absent from the public headers): the
+ * daemon-query trio.  The hermetic registry has no daemon, so run/list/debug
+ * keep their signatures but act on or ignore the registered set locally. */
+void xpc_activity_run(const char *identifier, xpc_activity_t activity);
+void xpc_activity_debug(const char *identifier, uint64_t flags,
+    dispatch_queue_t queue);
+void xpc_activity_list(const char *identifier, dispatch_queue_t queue);
 
 /* Rich error construction (object/xpc_rich_error.c). */
 xpc_rich_error_t xpc_rich_error_create(const char *desc, bool can_retry);
