@@ -928,6 +928,48 @@ main(void)
     xpc_release((xpc_object_t)server);
     xpc_release((xpc_object_t)client);
 
+    /* --- xpc_set_event_stream_handler ----------------------------------- */
+
+    {
+        char stream[64];
+        snprintf(stream, sizeof(stream), "xpc.test.stream.%ld",
+            (long)getpid());
+        static void *events_key;
+        dispatch_queue_t eq = dispatch_queue_create("xpc.test.events", NULL);
+        __block volatile int event_seen = 0;
+        __block bool event_on_target_queue = false;
+        dispatch_queue_set_specific(eq, &events_key, (void *)0x1, NULL);
+        xpc_set_event_stream_handler(stream, eq, ^(xpc_object_t event) {
+            if (event && xpc_get_type(event) == &_xpc_type_dictionary) {
+                const char *feed = xpc_dictionary_get_string(event, "feed");
+                if (feed && strcmp(feed, "seeds") == 0) event_seen = 1;
+            }
+            event_on_target_queue =
+                dispatch_get_specific(&events_key) == (void *)0x1;
+        });
+
+        xpc_connection_t pub =
+            xpc_connection_create_mach_service(stream, NULL, 0);
+        check(pub != NULL, "events: create stream publisher connection");
+        if (pub) {
+            xpc_connection_activate(pub);
+            xpc_object_t m = xpc_dictionary_create(NULL, NULL, 0);
+            xpc_dictionary_set_string(m, "feed", "seeds");
+            xpc_connection_send_message(pub, m);
+            xpc_release(m);
+            struct timespec head;
+            start_timer(&head);
+            while (!event_seen && !timed_out(&head, 5000))
+                usleep(20000);
+            check(event_seen, "events: handler received published event");
+            check(event_on_target_queue,
+                "events: delivered on the target queue");
+            xpc_connection_cancel(pub);
+            xpc_release((xpc_object_t)pub);
+        }
+        dispatch_release(eq);
+    }
+
     /* --- xpc_main: service runloop (final, in-process) ------------------ */
 
     /* xpc_main() never returns, so it runs last on the main thread while a

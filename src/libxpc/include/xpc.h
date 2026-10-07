@@ -590,6 +590,17 @@ mach_port_t xpc_mach_send_get_port(xpc_object_t object);
 typedef void (^xpc_connection_handler_t)(xpc_connection_t connection);
 void xpc_main(xpc_connection_handler_t handler);
 
+#pragma mark - Events
+
+/*!
+ * @typedef xpc_event_handler_t
+ * @abstract Call block with an event dictionary.
+ */
+typedef void (^xpc_event_handler_t)(xpc_object_t event);
+
+void xpc_set_event_stream_handler(const char *stream,
+    dispatch_queue_t targetq, xpc_event_handler_t handler);
+
 #pragma mark - Transactions
 
 /*
