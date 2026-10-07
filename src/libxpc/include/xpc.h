@@ -579,6 +579,17 @@ void xpc_dictionary_set_mach_recv(xpc_object_t object, const char *key,
 xpc_object_t xpc_mach_send_create(mach_port_t port);
 mach_port_t xpc_mach_send_get_port(xpc_object_t object);
 
+#pragma mark - Main Loop
+
+/*
+ * xpc_main() runs the process as an XPC service main loop.  The service
+ * name comes from launchd's XPC_SERVICE_NAME environment variable; libxpc
+ * binds a listener under it, calls <handler> with the service connection
+ * when the service first opens, and never returns.
+ */
+typedef void (^xpc_connection_handler_t)(xpc_connection_t connection);
+void xpc_main(xpc_connection_handler_t handler);
+
 #pragma mark - Transactions
 
 /*

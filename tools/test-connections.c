@@ -928,6 +928,65 @@ main(void)
     xpc_release((xpc_object_t)server);
     xpc_release((xpc_object_t)client);
 
-    printf("test-connections: %d passed, %d failed\n", passes, failures);
-    return failures == 0 ? 0 : 1;
+    /* --- xpc_main: service runloop (final, in-process) ------------------ */
+
+    /* xpc_main() never returns, so it runs last on the main thread while a
+     * helper on a concurrent queue plays the client.  Passing is impossible
+     * unless xpc_main actually registers the listener: the client only
+     * prints the summary and exits once a service reply arrives, or when the
+     * round-trip times out.  (Named services are in-process in this port, so
+     * a separate service process cannot be reached; xpc_main is exercised
+     * in-place instead.) */
+    char *xpc_main_svc = malloc(64);
+    if (!xpc_main_svc) return 1;
+    snprintf(xpc_main_svc, 64, "xpc.test.xpcmain.%ld", (long)getpid());
+    setenv("XPC_SERVICE_NAME", xpc_main_svc, 1);
+    __block volatile int xpc_main_pong = 0;
+    dispatch_async(dispatch_get_global_queue(0, 0), ^{
+        xpc_connection_t c = xpc_connection_create_mach_service(
+            xpc_main_svc, NULL, 0);
+        check(c != NULL, "xpc_main: create_mach_service");
+        if (c) {
+            xpc_connection_activate(c);
+            struct timespec head;
+            start_timer(&head);
+            while (!xpc_main_pong && !timed_out(&head, 5000)) {
+                xpc_object_t m = xpc_dictionary_create(NULL, NULL, 0);
+                xpc_dictionary_set_string(m, "ping", "via_xpc_main");
+                xpc_connection_send_message_with_reply(c, m, NULL,
+                    ^(xpc_object_t e) {
+                        if (e && xpc_get_type(e) == &_xpc_type_dictionary) {
+                            const char *pong =
+                                xpc_dictionary_get_string(e, "pong");
+                            if (pong && strcmp(pong, "via_xpc_main") == 0)
+                                xpc_main_pong = 1;
+                        }
+                    });
+                xpc_release(m);
+                usleep(50000);
+            }
+            check(xpc_main_pong,
+                "xpc_main: service answered a with-reply call");
+            xpc_connection_cancel(c);
+            xpc_release((xpc_object_t)c);
+        }
+        printf("test-connections: %d passed, %d failed\n", passes, failures);
+        exit(failures == 0 ? 0 : 1);
+    });
+
+    xpc_main(^(xpc_connection_t peer) {
+        xpc_connection_set_event_handler(peer, ^(xpc_object_t event) {
+            if (xpc_get_type(event) != &_xpc_type_dictionary) return;
+            if (xpc_dictionary_expects_reply(event)) {
+                xpc_object_t reply = xpc_dictionary_create_reply(event);
+                if (!reply) return;
+                const char *ping = xpc_dictionary_get_string(event, "ping");
+                xpc_dictionary_set_string(reply, "pong", ping ? ping : "?");
+                xpc_dictionary_send_reply(reply);
+            }
+        });
+    });
+
+    /* unreachable: xpc_main() never returns */
+    return 0;
 }
