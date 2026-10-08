@@ -295,6 +295,8 @@ _xpc_data_create
 _xpc_data_create_with_dispatch_data
 _xpc_data_get_bytes
 _xpc_data_get_bytes_ptr
+_xpc_data_get_bytes_ptr_and_length
+_xpc_data_get_inline_max
 _xpc_data_get_length
 _xpc_data_set_value
 _xpc_date_create
