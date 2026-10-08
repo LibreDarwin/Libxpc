@@ -199,6 +199,7 @@ _launch_set_system_service_enabled
 _launch_socket_service_check_in
 _launch_trial_factors_active_reload
 _launch_trial_factors_routine
+_launch_urgent_log_submission_completed
 _launch_wait
 _launchd_close
 _launchd_fdopen
