@@ -372,6 +372,9 @@ _xpc_hash
 _xpc_int64_create
 _xpc_int64_get_value
 _xpc_int64_set_value
+_xpc_is_kind_of_xpc_object4NSXPC
+_xpc_is_system_session
+_xpc_is_xpcservice
 _xpc_kind_from_type
 _xpc_listener_activate
 _xpc_listener_cancel
