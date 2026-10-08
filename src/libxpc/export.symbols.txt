@@ -505,6 +505,8 @@ _xpc_runtime_is_app_sandboxed
 _xpc_runtime_process_has_entered_sandbox
 _xpc_service_attach
 _xpc_service_attach_with_flags
+_xpc_service_create
+_xpc_service_create_from_specifier
 _xpc_service_routine
 _xpc_session_activate
 _xpc_session_cancel
