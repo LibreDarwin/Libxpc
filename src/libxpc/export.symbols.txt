@@ -383,6 +383,8 @@ _xpc_endpoint_copy_listener_port
 _xpc_endpoint_create
 _xpc_endpoint_get_port
 _xpc_equal
+_xpc_event_key_name
+_xpc_event_key_stream_name
 _xpc_fd_create
 _xpc_fd_create_from_port
 _xpc_fd_dup
