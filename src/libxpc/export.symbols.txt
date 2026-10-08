@@ -315,6 +315,7 @@ _xpc_bundle_get_info_dictionary
 _xpc_bundle_get_path
 _xpc_bundle_get_property
 _xpc_bundle_get_xpcservice_dictionary
+_xpc_bundle_populate
 _xpc_bundle_resolve
 _xpc_bundle_resolve_on_queue
 _xpc_bundle_resolve_sync
