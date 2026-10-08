@@ -300,6 +300,7 @@ _xpc_bool_create
 _xpc_bool_create_distinct
 _xpc_bool_get_value
 _xpc_bool_set_value
+_xpc_bs_main
 _xpc_bundle_copy_info_dictionary
 _xpc_bundle_copy_normalized_cryptex_path
 _xpc_bundle_copy_services
