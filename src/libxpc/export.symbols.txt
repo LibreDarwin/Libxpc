@@ -479,7 +479,9 @@ _xpc_pipe_interface_routine_async
 _xpc_pipe_interface_simpleroutine
 _xpc_pipe_invalidate
 _xpc_pipe_routine
+_xpc_pipe_routine_async
 _xpc_pipe_routine_checked
+_xpc_pipe_routine_forward
 _xpc_pipe_routine_reply
 _xpc_pipe_routine_with_flags
 _xpc_pipe_set_local_handler
