@@ -187,6 +187,7 @@ _xpc_activity_unregister
 _xpc_array_append_value
 _xpc_array_apply
 _xpc_array_apply_f
+_xpc_array_copy_mach_send
 _xpc_array_create
 _xpc_array_create_connection
 _xpc_array_create_empty
@@ -199,6 +200,7 @@ _xpc_array_get_date
 _xpc_array_get_dictionary
 _xpc_array_get_double
 _xpc_array_get_int64
+_xpc_array_get_pointer
 _xpc_array_get_string
 _xpc_array_get_uint64
 _xpc_array_get_uuid
@@ -210,6 +212,8 @@ _xpc_array_set_date
 _xpc_array_set_double
 _xpc_array_set_fd
 _xpc_array_set_int64
+_xpc_array_set_mach_send
+_xpc_array_set_pointer
 _xpc_array_set_string
 _xpc_array_set_uint64
 _xpc_array_set_uuid
@@ -263,9 +267,13 @@ _xpc_connection_set_peer_team_identity_requirement
 _xpc_connection_set_target_queue
 _xpc_connection_suspend
 _xpc_copy
+_xpc_copy_bootstrap
 _xpc_copy_description
+_xpc_copy_domain
 _xpc_copy_entitlement_for_token
 _xpc_copy_entitlements_for_pid
+_xpc_copy_event
+_xpc_copy_short_description
 _xpc_create_from_plist
 _xpc_create_from_plist_with_string_cache
 _xpc_data_create
@@ -322,10 +330,6 @@ _xpc_dictionary_set_fd
 _xpc_dictionary_set_int64
 _xpc_dictionary_set_mach_recv
 _xpc_dictionary_set_mach_send
-_xpc_array_copy_mach_send
-_xpc_array_get_pointer
-_xpc_array_set_mach_send
-_xpc_array_set_pointer
 _xpc_dictionary_set_pointer
 _xpc_dictionary_set_string
 _xpc_dictionary_set_uint64
@@ -366,11 +370,11 @@ _xpc_listener_set_peer_requirement
 _xpc_mach_recv_create
 _xpc_mach_recv_create_owned
 _xpc_mach_recv_extract_right
+_xpc_mach_send_copy_right
 _xpc_mach_send_create
 _xpc_mach_send_create_owned
-_xpc_mach_send_get_port
-_xpc_mach_send_copy_right
 _xpc_mach_send_create_with_disposition
+_xpc_mach_send_get_port
 _xpc_mach_send_get_right
 _xpc_mach_send_once_create
 _xpc_mach_send_once_extract_right
