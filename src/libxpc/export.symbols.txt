@@ -550,3 +550,4 @@ _xpc_uuid_get_bytes
 _xpc_wire_deserialize
 _xpc_wire_deserialize_with_ports
 _xpc_wire_serialize
+_launch_copy_properties_for_pid_4assertiond
