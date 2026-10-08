@@ -221,6 +221,9 @@ _xpc_array_set_string
 _xpc_array_set_uint64
 _xpc_array_set_uuid
 _xpc_array_set_value
+_xpc_atfork_child
+_xpc_atfork_parent
+_xpc_atfork_prepare
 _xpc_binprefs_add
 _xpc_binprefs_alloc
 _xpc_binprefs_copy
