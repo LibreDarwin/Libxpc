@@ -5,7 +5,7 @@
  * request/reply dictionaries, so byte-identical behavior can be validated
  * against Apple's implementation. Non-destructive: query-only routines.
  *
- * Copyright (c) 2026, xnuports. SPDX-License-Identifier: BSD-2-Clause.
+ * Copyright (c) 2026, LibreDarwin. SPDX-License-Identifier: BSD-2-Clause.
  */
 #include <dlfcn.h>
 #include <mach/mach.h>

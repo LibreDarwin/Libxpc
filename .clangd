@@ -31,8 +31,8 @@ CompileFlags:
     - "-DDARWIN"
     - "-DBUILD_DARWIN"
     - "-I"
-    - "/Users/sunneva/xnuports-root/devel/DarwinSrc/CoreOS/Staging/Libxpc/src/libsystem_xpc/include"
+    - "/Users/sunneva/LibreDarwin-root/devel/DarwinSrc/CoreOS/Staging/Libxpc/src/libsystem_xpc/include"
     - "-I"
-    - "/Users/sunneva/xnuports-root/devel/DarwinSrc/CoreOS/Staging/Libxpc/include"
+    - "/Users/sunneva/LibreDarwin-root/devel/DarwinSrc/CoreOS/Staging/Libxpc/include"
   Remove:
     - "-Werror"

@@ -246,12 +246,12 @@ main(void)
 
     xpc_rich_error_t rerr = NULL;
     xpc_peer_requirement_t req =
-        xpc_peer_requirement_create_entitlement_exists("com.xnuports.test", &rerr);
+        xpc_peer_requirement_create_entitlement_exists("com.LibreDarwin.test", &rerr);
     check(req != NULL && rerr == NULL, "requirement: entitlement_exists builds");
     if (rerr) xpc_release((xpc_object_t)rerr);
     if (req) {
         int rc = xpc_connection_set_peer_entitlement_exists_requirement(
-            client, "com.xnuports.test");
+            client, "com.LibreDarwin.test");
         check(rc == 0, "requirement: setter accepted entitlement_exists");
         /* The client never has the requirement enforced (it receives no
          * requests), so store the requirement on the server instead and make

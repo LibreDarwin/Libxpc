@@ -79,7 +79,7 @@ int launchctl_main(int argc, char **argv);
 /* Version string written into the caller's shared-memory region by the
  * PRINT handler — the stub's stand-in for launchd's build banner. */
 #define STUB_VERSION_STRING \
-    "Darwin Bootstrapper Version 7.0.0: xnuports-stub launchd"
+    "Darwin Bootstrapper Version 7.0.0: LibreDarwin-stub launchd"
 
 #pragma mark - canned domain state
 
@@ -95,10 +95,10 @@ struct stub_service {
  * encodings: 9 -> "-9" (WTERMSIG), 5 << 8 -> "5" (WEXITSTATUS), 0 -> "0".
  */
 static struct stub_service g_services[] = {
-    { "com.xnuports.stub.running",  502,   0, true },
-    { "com.xnuports.stub.dead",       0,   0, true },
-    { "com.xnuports.stub.signaled",   0,   9, true },
-    { "com.xnuports.stub.exited",     0,   5 << 8, true },
+    { "com.LibreDarwin.stub.running",  502,   0, true },
+    { "com.LibreDarwin.stub.dead",       0,   0, true },
+    { "com.LibreDarwin.stub.signaled",   0,   9, true },
+    { "com.LibreDarwin.stub.exited",     0,   5 << 8, true },
 };
 #define SERVICE_COUNT (sizeof(g_services) / sizeof(g_services[0]))
 
@@ -600,7 +600,7 @@ handle_dumpstate(xpc_object_t req, xpc_object_t reply)
         return;
     }
     w = snprintf(buf + off, sizeof(buf) - off,
-        "launchd version 7.0.0 (xnuports stub)\n"
+        "launchd version 7.0.0 (LibreDarwin stub)\n"
         "system = {\n"
         "\tactive count = 1\n"
         "\tpath = /sbin/launchd\n"

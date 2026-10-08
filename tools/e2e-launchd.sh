@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# tools/e2e-launchd.sh — end-to-end test for the xnuports launchd stub.
+# tools/e2e-launchd.sh — end-to-end test for the LibreDarwin launchd stub.
 #
 # Model: one shell invocation per assertion.  launchd_stub creates a local
 # Mach port, runs the launchctl command in-process (a serve thread answers),
@@ -85,7 +85,7 @@ expect_empty() {
 # The stub's PRINT handler maps the caller's memory entry and writes its
 # banner back into the region; version_cmd reads it there.  Pin the full
 # string so a shmem-map regression (empty region) fails this test.
-expect_output "version" "Darwin Bootstrapper Version 7.0.0: xnuports-stub launchd" \
+expect_output "version" "Darwin Bootstrapper Version 7.0.0: LibreDarwin-stub launchd" \
     "$STUB" --launchctl "$LAUNCHCTL" -- version
 
 # help is a local command: usage header, exit 0
@@ -123,19 +123,19 @@ check "setenv too many" 64 \
 # --- service table -----------------------------------------------------
 
 # whole-table list
-expect_output "list" "com.xnuports.stub.running" \
+expect_output "list" "com.LibreDarwin.stub.running" \
     "$STUB" --launchctl "$LAUNCHCTL" -- list
 expect_output "list pid 502" "502" \
     "$STUB" --launchctl "$LAUNCHCTL" -- list
 
 # per-service lookup
 expect_output "list service" "502" \
-    "$STUB" --launchctl "$LAUNCHCTL" -- list com.xnuports.stub.running
+    "$STUB" --launchctl "$LAUNCHCTL" -- list com.LibreDarwin.stub.running
 
 # nonexistent service -> SERVICE_NOT_FOUND -> launchd error code (113),
 # matching launchctl(1) on a real system
 check "list missing service" 113 \
-    "$STUB" --launchctl "$LAUNCHCTL" -- list com.xnuports.stub.nope
+    "$STUB" --launchctl "$LAUNCHCTL" -- list com.LibreDarwin.stub.nope
 
 # --- state mutation ----------------------------------------------------
 
@@ -143,13 +143,13 @@ check "list missing service" 113 \
 # (bare labels are rejected by launchctl(1): "Unrecognized target specifier.",
 # exit 64)
 check "enable bare label" 64 \
-    "$STUB" --launchctl "$LAUNCHCTL" -- enable com.xnuports.stub.running
+    "$STUB" --launchctl "$LAUNCHCTL" -- enable com.LibreDarwin.stub.running
 check "enable" 0 \
-    "$STUB" --launchctl "$LAUNCHCTL" -- enable user/$(id -u)/com.xnuports.stub.running
+    "$STUB" --launchctl "$LAUNCHCTL" -- enable user/$(id -u)/com.LibreDarwin.stub.running
 
 # disable shares the handler but must actually flip the state flag
 check "disable" 0 \
-    "$STUB" --launchctl "$LAUNCHCTL" -- disable user/$(id -u)/com.xnuports.stub.running
+    "$STUB" --launchctl "$LAUNCHCTL" -- disable user/$(id -u)/com.LibreDarwin.stub.running
 
 # --- service kickstart --------------------------------------------------
 
@@ -157,58 +157,58 @@ check "disable" 0 \
 # reply-with-error path), printed with -p, exit 0
 expect_output "kickstart running pid" "502" \
     "$STUB" --launchctl "$LAUNCHCTL" -- \
-    kickstart -p user/$(id -u)/com.xnuports.stub.running
+    kickstart -p user/$(id -u)/com.LibreDarwin.stub.running
 check "kickstart running" 0 \
     "$STUB" --launchctl "$LAUNCHCTL" -- \
-    kickstart user/$(id -u)/com.xnuports.stub.running
+    kickstart user/$(id -u)/com.LibreDarwin.stub.running
 
 # stopped service: fresh pid (777), exit 0
 expect_output "kickstart stopped pid" "777" \
     "$STUB" --launchctl "$LAUNCHCTL" -- \
-    kickstart -p user/$(id -u)/com.xnuports.stub.dead
+    kickstart -p user/$(id -u)/com.LibreDarwin.stub.dead
 
 # unknown service -> SERVICE_NOT_FOUND, message + 113 match launchctl(1)
 check "kickstart missing" 113 \
     "$STUB" --launchctl "$LAUNCHCTL" -- \
-    kickstart user/$(id -u)/com.xnuports.stub.nope
+    kickstart user/$(id -u)/com.LibreDarwin.stub.nope
 
 # --- bootout ------------------------------------------------------------
 
 # service target form round-trips and succeeds silently
 check "bootout service" 0 \
     "$STUB" --launchctl "$LAUNCHCTL" -- \
-    bootout user/$(id -u)/com.xnuports.stub.running
+    bootout user/$(id -u)/com.LibreDarwin.stub.running
 
 # unknown service -> ESRCH, same message and status as launchctl(1)
 check "bootout missing" 3 \
     "$STUB" --launchctl "$LAUNCHCTL" -- \
-    bootout user/$(id -u)/com.xnuports.stub.nope
+    bootout user/$(id -u)/com.LibreDarwin.stub.nope
 
 # --- bootstrap ----------------------------------------------------------
 
 # unreadable plist path -> EIO, message + 5 match launchctl(1)
 check "bootstrap missing" 5 \
     "$STUB" --launchctl "$LAUNCHCTL" -- \
-    bootstrap user/$(id -u) /tmp/xnuports-no-such.plist
+    bootstrap user/$(id -u) /tmp/LibreDarwin-no-such.plist
 
 # readable but invalid plist -> same EIO failure as real launchd
-printf 'this is not plist' > /tmp/xnuports-bad.plist
+printf 'this is not plist' > /tmp/LibreDarwin-bad.plist
 check "bootstrap invalid" 5 \
     "$STUB" --launchctl "$LAUNCHCTL" -- \
-    bootstrap user/$(id -u) /tmp/xnuports-bad.plist
-rm -f /tmp/xnuports-bad.plist
+    bootstrap user/$(id -u) /tmp/LibreDarwin-bad.plist
+rm -f /tmp/LibreDarwin-bad.plist
 
 # --- kill ---------------------------------------------------------------
 
 # running service: signal accepted, exit 0
 check "kill running" 0 \
     "$STUB" --launchctl "$LAUNCHCTL" -- kill 9 \
-    user/$(id -u)/com.xnuports.stub.running
+    user/$(id -u)/com.LibreDarwin.stub.running
 
 # unknown service -> SERVICE_NOT_FOUND, message + 113 match launchctl(1)
 check "kill missing" 113 \
     "$STUB" --launchctl "$LAUNCHCTL" -- kill 9 \
-    user/$(id -u)/com.xnuports.stub.nope
+    user/$(id -u)/com.LibreDarwin.stub.nope
 
 # --- summary -----------------------------------------------------------
 

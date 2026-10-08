@@ -30,7 +30,7 @@
  */
 
 /*
- * launchctl — launchd domain/service control, implemented on xnuports libxpc.
+ * launchctl — launchd domain/service control, implemented on LibreDarwin libxpc.
  *
  * Talks to the real launchd over the bootstrap pipe using the private
  * xpc_domain_routine / xpc_service_routine protocol (docs/GUIDE.md).
@@ -425,7 +425,7 @@ version_cmd(int argc, char **argv)
     state = xpc_global_data();
     if (!state->xpc_bootstrap_pipe) {
         fprintf(stdout,
-            "launchctl (xnuports libxpc) — Darwin service management\n");
+            "launchctl (LibreDarwin libxpc) — Darwin service management\n");
         return 0;
     }
     kr = vm_allocate(mach_task_self(), &region, region_len, VM_FLAGS_ANYWHERE);

@@ -1,4 +1,4 @@
-# bmake (BSD make).  Top-level build for the xnuports Darwin userland.
+# bmake (BSD make).  Top-level build for the LibreDarwin Darwin userland.
 #
 # The tree is shaped like Apple's libSystem family:
 #

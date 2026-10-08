@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2026, xnuports
+ * Copyright (c) 2026, LibreDarwin
  * All rights reserved.
  *
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * This header is part of the xnuports reimplementation of the XPC public
+ * This header is part of the LibreDarwin reimplementation of the XPC public
  * API. Function signatures and types match the Apple SDK contract for
  * source compatibility; the text is original.
  */
