@@ -69,6 +69,7 @@ __xpc_type_int64
 __xpc_type_listener
 __xpc_type_mach_recv
 __xpc_type_mach_send
+__xpc_type_mach_send_once
 __xpc_type_null
 __xpc_type_peer_requirement
 __xpc_type_pointer
@@ -364,6 +365,11 @@ _xpc_mach_recv_extract_right
 _xpc_mach_send_create
 _xpc_mach_send_create_owned
 _xpc_mach_send_get_port
+_xpc_mach_send_copy_right
+_xpc_mach_send_create_with_disposition
+_xpc_mach_send_get_right
+_xpc_mach_send_once_create
+_xpc_mach_send_once_extract_right
 _xpc_main
 _xpc_null_create
 _xpc_object_alloc

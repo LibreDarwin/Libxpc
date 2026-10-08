@@ -87,6 +87,7 @@ typedef enum xpc_kind {
     XPC_KIND_FD,
     XPC_KIND_RICH_ERROR,
     XPC_KIND_MACH_RECV,
+    XPC_KIND_MACH_SEND_ONCE,
     XPC_KIND_PEER_REQUIREMENT,
     XPC_KIND_POINTER,
     XPC_KIND_COUNT,
@@ -409,6 +410,7 @@ extern const struct _xpc_type_s _xpc_type_listener;
 extern const struct _xpc_type_s _xpc_type_fd;
 extern const struct _xpc_type_s _xpc_type_rich_error;
 extern const struct _xpc_type_s _xpc_type_mach_recv;
+extern const struct _xpc_type_s _xpc_type_mach_send_once;
 extern const struct _xpc_type_s _xpc_type_peer_requirement;
 extern const struct _xpc_type_s _xpc_type_pointer;
 
@@ -437,6 +439,13 @@ xpc_object_t xpc_mach_send_create_owned(mach_port_t port);
  * right on release if it was never consumed. */
 xpc_object_t xpc_mach_recv_create_owned(mach_port_t port);
 mach_port_t xpc_mach_recv_extract_right(xpc_object_t obj);
+mach_port_t xpc_mach_send_get_port(xpc_object_t obj); /* existing public form */
+mach_port_t _xpc_mach_send_get_right(xpc_object_t obj);
+mach_port_t _xpc_mach_send_copy_right(xpc_object_t obj);
+xpc_object_t _xpc_mach_send_create_with_disposition(mach_port_t port,
+    mach_msg_type_name_t disp);
+xpc_object_t _xpc_mach_send_once_create(mach_port_t port);
+mach_port_t _xpc_mach_send_once_extract_right(xpc_object_t obj);
 
 /* Reply-context: stamp a dictionary deserialized from a received message
  * with the message's reply capability.  mode becomes 1 ("received request")

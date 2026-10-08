@@ -597,6 +597,12 @@ void xpc_dictionary_set_mach_recv(xpc_object_t object, const char *key,
  */
 xpc_object_t xpc_mach_send_create(mach_port_t port);
 mach_port_t xpc_mach_send_get_port(xpc_object_t object);
+mach_port_t _xpc_mach_send_get_right(xpc_object_t object);
+mach_port_t _xpc_mach_send_copy_right(xpc_object_t object);
+xpc_object_t _xpc_mach_send_create_with_disposition(mach_port_t port,
+    mach_msg_type_name_t disposition);
+xpc_object_t _xpc_mach_send_once_create(mach_port_t port);
+mach_port_t _xpc_mach_send_once_extract_right(xpc_object_t object);
 
 #pragma mark - Main Loop
 

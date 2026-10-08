@@ -60,7 +60,8 @@ const struct _xpc_type_s _xpc_type_session    = { "session",    XPC_KIND_SESSION
 const struct _xpc_type_s _xpc_type_listener   = { "listener",   XPC_KIND_LISTENER };
 const struct _xpc_type_s _xpc_type_fd         = { "fd",         XPC_KIND_FD };
 const struct _xpc_type_s _xpc_type_rich_error = { "rich_error", XPC_KIND_RICH_ERROR };
-const struct _xpc_type_s _xpc_type_mach_recv  = { "mach-recv",  XPC_KIND_MACH_RECV };
+const struct _xpc_type_s _xpc_type_mach_recv     = { "mach-recv",     XPC_KIND_MACH_RECV };
+const struct _xpc_type_s _xpc_type_mach_send_once = { "mach-send-once", XPC_KIND_MACH_SEND_ONCE };
 const struct _xpc_type_s _xpc_type_peer_requirement =
     { "peer-requirement", XPC_KIND_PEER_REQUIREMENT };
 const struct _xpc_type_s _xpc_type_pointer =
