@@ -155,6 +155,8 @@ _launch_load_jetsam_properties_path
 _launch_load_mounted_jetsam_properties
 _launch_msg
 _launch_socket_service_check_in
+_launch_trial_factors_active_reload
+_launch_trial_factors_routine
 _launch_wait
 _launchd_close
 _launchd_fdopen
