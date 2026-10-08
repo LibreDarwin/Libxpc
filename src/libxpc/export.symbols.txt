@@ -484,6 +484,9 @@ _xpc_transaction_try_exit_clean
 _xpc_type_get_name
 _xpc_uint64_create
 _xpc_uint64_get_value
+_xpc_user_sessions_enabled
+_xpc_user_sessions_get_foreground_uid
+_xpc_user_sessions_get_session_uid
 _xpc_uuid_create
 _xpc_uuid_get_bytes
 _xpc_wire_deserialize
