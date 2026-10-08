@@ -483,6 +483,7 @@ _xpc_domain_routine
 _xpc_double_create
 _xpc_double_get_value
 _xpc_double_set_value
+_xpc_endpoint_compare
 _xpc_endpoint_copy_listener_port
 _xpc_endpoint_create
 _xpc_endpoint_create_bs_from_port
