@@ -492,6 +492,7 @@ _xpc_endpoint_create_bs_named
 _xpc_endpoint_create_bs_named_user
 _xpc_endpoint_create_bs_service
 _xpc_endpoint_create_mach_port_4sim
+_xpc_endpoint_get_bs_job_handle
 _xpc_endpoint_get_port
 _xpc_equal
 _xpc_event_key_name
