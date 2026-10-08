@@ -468,7 +468,10 @@ _xpc_set_event_with_flags
 _xpc_set_idle_handler
 _xpc_shmem_create
 _xpc_shmem_create_owned
+_xpc_shmem_create_readonly
 _xpc_shmem_dispose
+_xpc_shmem_get_length
+_xpc_shmem_get_mach_port
 _xpc_shmem_get_port
 _xpc_shmem_map
 _xpc_strerror
