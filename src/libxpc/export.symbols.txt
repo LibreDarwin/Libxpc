@@ -545,6 +545,7 @@ _xpc_global_data_has_bootstrap_pipe
 _xpc_handle_service
 _xpc_handle_subservice
 _xpc_hash
+_xpc_impersonate_user
 _xpc_inspect_copy_description
 _xpc_inspect_copy_description_local
 _xpc_inspect_copy_short_description
