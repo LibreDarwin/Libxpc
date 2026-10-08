@@ -157,6 +157,7 @@ _launch_disable_directory
 _launch_enable_directory
 _launch_extension_check_in_live_4UIKit
 _launch_get_fd
+_launch_get_service_enabled
 _launch_job_query_get_additional_job_properties
 _launch_job_query_routine
 _launch_job_routine
