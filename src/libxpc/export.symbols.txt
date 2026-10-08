@@ -433,6 +433,9 @@ _xpc_pipe_simpleroutine
 _xpc_pipe_try_receive
 _xpc_pointer_create
 _xpc_pointer_get_value
+_xpc_receive_mach_msg
+_xpc_receive_mach_msg_validate_hdr
+_xpc_receive_remote_msg
 _xpc_release
 _xpc_reply_move_disposition
 _xpc_reply_send
