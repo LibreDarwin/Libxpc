@@ -351,6 +351,7 @@ _xpc_connection_get_peer_instance
 _xpc_connection_get_pid
 _xpc_connection_get_port
 _xpc_connection_get_recvp_4test
+_xpc_connection_is_extension
 _xpc_connection_register_mach_service
 _xpc_connection_resume
 _xpc_connection_send_barrier
