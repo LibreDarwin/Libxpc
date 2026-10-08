@@ -519,6 +519,7 @@ _xpc_extension_type_init
 _xpc_fd_create
 _xpc_fd_create_from_port
 _xpc_fd_dup
+_xpc_fd_get_port
 _xpc_file_transfer_cancel
 _xpc_file_transfer_copy_io
 _xpc_file_transfer_create_with_fd
