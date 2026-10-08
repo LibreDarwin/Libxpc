@@ -101,6 +101,8 @@ _bootstrap_subset
 _bootstrap_unprivileged
 _create_and_switch_to_per_session_launchd
 _launch_activate_socket
+_launch_active_user_login
+_launch_active_user_logout
 _launch_data_alloc
 _launch_data_array_get_count
 _launch_data_array_get_index
