@@ -347,7 +347,13 @@ _xpc_equal
 _xpc_fd_create
 _xpc_fd_create_from_port
 _xpc_fd_dup
+_xpc_get_attachment_endpoint
+_xpc_get_class4NSXPC
+_xpc_get_event_name
+_xpc_get_instance
 _xpc_get_service_identifier_for_token
+_xpc_get_service_name_from_pid
+_xpc_get_service_uid_for_token
 _xpc_get_type
 _xpc_global_data
 _xpc_global_data_has_bootstrap_pipe
