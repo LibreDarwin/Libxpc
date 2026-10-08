@@ -322,6 +322,10 @@ _xpc_dictionary_set_fd
 _xpc_dictionary_set_int64
 _xpc_dictionary_set_mach_recv
 _xpc_dictionary_set_mach_send
+_xpc_array_copy_mach_send
+_xpc_array_get_pointer
+_xpc_array_set_mach_send
+_xpc_array_set_pointer
 _xpc_dictionary_set_pointer
 _xpc_dictionary_set_string
 _xpc_dictionary_set_uint64

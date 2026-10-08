@@ -360,3 +360,46 @@ xpc_array_create_connection(xpc_object_t xarray, size_t index)
         xpc_connection_create_from_endpoint((xpc_endpoint_t)(void *)v);
     return (xpc_object_t)(void *)conn;
 }
+xpc_object_t
+_xpc_array_copy_mach_send(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t obj = xpc_array_get_value(xarray, index);
+    if (!obj || obj->isa != &_xpc_type_mach_send) return NULL;
+    xpc_mach_send_t *m = XPC_CAST(xpc_mach_send_t, obj);
+    mach_port_t port = m->port;
+    kern_return_t kr = mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND, +1);
+    if (kr != KERN_SUCCESS) {
+        return NULL;
+    }
+    obj = xpc_mach_send_create_internal(port, true);
+    if (!obj) {
+        (void)mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND, -1);
+    }
+    return obj;
+}
+
+void
+_xpc_array_set_mach_send(xpc_object_t xarray, size_t index, mach_port_t port)
+{
+    xpc_object_t obj = xpc_mach_send_create(port);
+    if (!obj) return;
+    xpc_array_set_value(xarray, index, obj);
+    xpc_release(obj);
+}
+
+void
+_xpc_array_set_pointer(xpc_object_t xarray, size_t index, void *ptr)
+{
+    xpc_object_t obj = xpc_pointer_create(ptr);
+    if (!obj) return;
+    xpc_array_set_value(xarray, index, obj);
+    xpc_release(obj);
+}
+
+void *
+_xpc_array_get_pointer(xpc_object_t xarray, size_t index)
+{
+    xpc_object_t obj = xpc_array_get_value(xarray, index);
+    if (!obj || obj->isa != &_xpc_type_pointer) return NULL;
+    return xpc_pointer_get_value(obj);
+}

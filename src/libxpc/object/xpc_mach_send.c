@@ -47,7 +47,7 @@
 
 #include "xpc_internal.h"
 
-static xpc_object_t
+xpc_object_t
 xpc_mach_send_create_internal(mach_port_t port, bool dispose)
 {
     xpc_mach_send_t *m = XPC_CAST(xpc_mach_send_t,

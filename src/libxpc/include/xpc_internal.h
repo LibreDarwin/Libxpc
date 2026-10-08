@@ -427,6 +427,7 @@ xpc_object_t xpc_object_alloc_scalar(xpc_type_t t);
 /* Mach-send construction.  The public xpc_mach_send_create() borrows the
  * right; xpc_mach_send_create_owned() takes a received right (COPY_SEND
  * from an OOL_PORTS descriptor) and deallocates it on release. */
+xpc_object_t xpc_mach_send_create_internal(mach_port_t port, bool dispose);
 xpc_object_t xpc_mach_send_create_owned(mach_port_t port);
 
 /* Mach-recv construction (wire kind 0x15000).  A value boxes a receive

@@ -764,6 +764,12 @@ xpc_connection_t xpc_dictionary_get_connection(xpc_object_t xdict);
 void _xpc_dictionary_set_remote_connection(xpc_object_t xdict,
     xpc_connection_t connection);
 
+#pragma mark - Array SPI
+xpc_object_t _xpc_array_copy_mach_send(xpc_object_t xarray, size_t index);
+void _xpc_array_set_mach_send(xpc_object_t xarray, size_t index, mach_port_t port);
+void _xpc_array_set_pointer(xpc_object_t xarray, size_t index, void *ptr);
+void *_xpc_array_get_pointer(xpc_object_t xarray, size_t index);
+
 #ifdef __cplusplus
 }
 #endif
