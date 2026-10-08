@@ -478,6 +478,9 @@ _xpc_string_get_string_ptr
 _xpc_string_set_value
 _xpc_transaction_begin
 _xpc_transaction_end
+_xpc_transaction_exit_clean
+_xpc_transaction_interrupt_clean_exit
+_xpc_transaction_try_exit_clean
 _xpc_type_get_name
 _xpc_uint64_create
 _xpc_uint64_get_value
