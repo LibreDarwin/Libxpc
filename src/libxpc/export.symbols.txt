@@ -276,6 +276,9 @@ _xpc_binprefs_set_psattr
 _xpc_bool_create
 _xpc_bool_get_value
 _xpc_bool_set_value
+_xpc_bundle_copy_info_dictionary
+_xpc_bundle_copy_normalized_cryptex_path
+_xpc_bundle_copy_services
 _xpc_coalition_copy_info
 _xpc_coalition_history_pipe_async
 _xpc_connection_activate
