@@ -438,7 +438,12 @@ _xpc_shmem_dispose
 _xpc_shmem_get_port
 _xpc_shmem_map
 _xpc_strerror
+_xpc_string_cache_create
+_xpc_string_cache_for_each
+_xpc_string_cache_get_count
+_xpc_string_cache_get_name
 _xpc_string_create
+_xpc_string_create_cached
 _xpc_string_create_no_copy
 _xpc_string_create_with_format
 _xpc_string_create_with_format_and_arguments
