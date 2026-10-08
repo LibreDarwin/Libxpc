@@ -322,6 +322,7 @@ _xpc_bundle_resolve_sync
 _xpc_coalition_copy_info
 _xpc_coalition_history_pipe_async
 _xpc_connection_activate
+_xpc_connection_bs_seal_listener
 _xpc_connection_cancel
 _xpc_connection_copy_bundle_id
 _xpc_connection_copy_entitlement_value
