@@ -159,6 +159,7 @@ _launch_extension_check_in_live_4UIKit
 _launch_get_fd
 _launch_get_service_enabled
 _launch_get_system_service_enabled
+_launch_get_user_context
 _launch_job_query_get_additional_job_properties
 _launch_job_query_routine
 _launch_job_routine
