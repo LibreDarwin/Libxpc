@@ -412,6 +412,8 @@ _xpc_mach_send_get_right
 _xpc_mach_send_once_create
 _xpc_mach_send_once_extract_right
 _xpc_main
+_xpc_make_serialization
+_xpc_make_serialization_with_ool
 _xpc_null_create
 _xpc_object_alloc
 _xpc_object_alloc_scalar
