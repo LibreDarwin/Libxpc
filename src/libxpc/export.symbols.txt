@@ -212,6 +212,7 @@ _load_launchd_jobs_at_loginwindow_prompt
 _mpm_uncork_fork
 _mpm_wait
 _reboot2
+_reboot3
 _vproc_release
 _vproc_retain
 _vproc_standby_begin
