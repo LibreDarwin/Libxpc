@@ -495,6 +495,7 @@ _xpc_endpoint_create_mach_port_4sim
 _xpc_endpoint_get_bs_job_handle
 _xpc_endpoint_get_port
 _xpc_equal
+_xpc_error_key_description
 _xpc_event_key_name
 _xpc_event_key_stream_name
 _xpc_event_publisher_activate
