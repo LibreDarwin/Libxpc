@@ -184,6 +184,9 @@ _xpc_activity_set_state_with_completion_status
 _xpc_activity_should_be_data_budgeted
 _xpc_activity_should_defer
 _xpc_activity_unregister
+_xpc_add_bundle
+_xpc_add_bundle_with_lwcr
+_xpc_add_bundles_for_domain
 _xpc_array_append_value
 _xpc_array_apply
 _xpc_array_apply_f
