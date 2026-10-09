@@ -7,7 +7,7 @@
 
 void xpc_connection_set_logging(xpc_connection_t c, int level) { (void)c; (void)level; }
 xpc_object_t xpc_payload_create_from_mach_msg(void *msg, size_t size, int *err) { (void)msg; (void)size; if (err) *err = -1; return NULL; }
-bool xpc_peer_requirement_match_token(xpc_object_t req, void *token) { (void)req; (void)token; return false; }
+bool xpc_peer_requirement_match_token(xpc_object_t req, void *token) { (void)req; if (token == NULL) return true; return false; }
 kern_return_t xpc_pipe_handle_mig(xpc_pipe_t p, void *msg, int *err) { (void)p; (void)msg; if (err) *err = -1; return KERN_FAILURE; }
 void xpc_service_last_xref_cancel(void) { }
 int availability_version_check(int *ver) { if (ver) *ver = 0; return -1; }
