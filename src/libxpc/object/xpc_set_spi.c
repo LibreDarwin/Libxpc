@@ -16,11 +16,9 @@ _xpc_set_event_state(uint64_t state)
 }
 
 void
-_xpc_set_event_with_flags(const char *name, const char *value, uint64_t flags)
+_xpc_set_event_with_flags(const char *stream, const char *name, xpc_object_t descriptor, uint64_t flags)
 {
-    (void)name;
-    (void)value;
-    (void)flags;
+    (void)stream; (void)name; (void)descriptor; (void)flags;
 }
 
 void
