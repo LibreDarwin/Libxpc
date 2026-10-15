@@ -44,3 +44,21 @@ bool __availability_version_check(unsigned int platform, unsigned int *versions)
     (void)platform; (void)versions;
     return true;
 }
+
+int __launch_job_routine(void *job, void *resp, int a3, int a4, int a5, int a6, int a7, int a8)
+{
+    (void)job; (void)resp; (void)a3; (void)a4; (void)a5; (void)a6; (void)a7; (void)a8;
+    return 0;
+}
+
+int __launch_job_routine_async(void *job, void *resp, int a3, int a4, int a5, int a6, int a7, int a8)
+{
+    (void)job; (void)resp; (void)a3; (void)a4; (void)a5; (void)a6; (void)a7; (void)a8;
+    return 0;
+}
+
+int __launch_job_query_routine(void *job, void *resp, int a3, int a4, int a5, int a6, int a7, int a8)
+{
+    (void)job; (void)resp; (void)a3; (void)a4; (void)a5; (void)a6; (void)a7; (void)a8;
+    return 0;
+}
