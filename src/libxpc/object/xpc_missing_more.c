@@ -62,3 +62,13 @@ int __launch_job_query_routine(void *job, void *resp, int a3, int a4, int a5, in
     (void)job; (void)resp; (void)a3; (void)a4; (void)a5; (void)a6; (void)a7; (void)a8;
     return 0;
 }
+
+xpc_object_t __xpc_bool_create_distinct(bool v)
+{
+    return xpc_bool_create(v);
+}
+
+void __xpc_bool_set_value(xpc_object_t b, bool v)
+{
+    (void)b; (void)v;
+}
