@@ -110,3 +110,18 @@ void __xpc_int64_set_value(xpc_object_t obj, int64_t value)
 {
     (void)obj; (void)value;
 }
+
+const char *__xpc_error_key_description(void)
+{
+    return "description";
+}
+
+const char *__xpc_event_key_name(void)
+{
+    return "name";
+}
+
+const char *__xpc_event_key_stream_name(void)
+{
+    return "stream";
+}
