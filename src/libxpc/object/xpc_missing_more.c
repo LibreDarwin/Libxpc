@@ -73,12 +73,6 @@ void __xpc_bool_set_value(xpc_object_t b, bool v)
     (void)b; (void)v;
 }
 
-xpc_object_t __xpc_connection_create_internal_listener(const char *name, uint64_t flags)
-{
-    (void)name; (void)flags;
-    return NULL;
-}
-
 xpc_object_t __xpc_connection_get_parent_4test(xpc_object_t c)
 {
     (void)c;
@@ -142,4 +136,15 @@ int __xpc_pipe_interface_simpleroutine(void *a1, void *a2, void *a3, void *a4)
 {
     (void)a1; (void)a2; (void)a3; (void)a4;
     return -1;
+}
+
+xpc_connection_t __xpc_connection_create_internal_listener(const char *name, uint64_t flags)
+{
+    (void)flags;
+    xpc_connection_t c = xpc_connection_create_mach_service(name, NULL, XPC_CONNECTION_MACH_SERVICE_LISTENER);
+    if (!c) return NULL;
+    struct _xpc_connection_s *conn = (struct _xpc_connection_s *)c;
+    conn->have_peer_audit = true;
+    memset(&conn->peer_audit, 0, sizeof(conn->peer_audit));
+    return c;
 }
