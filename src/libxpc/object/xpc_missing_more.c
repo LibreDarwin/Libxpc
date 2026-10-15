@@ -38,3 +38,9 @@ int amfi_launch_constraint_matches_process(void) { return 0; }
 int amfi_launch_constraint_set_spawnattr(void) { return -1; }
 int amfi_restricted_execution_mode_enable(void) { return -1; }
 int amfi_restricted_execution_mode_status(void) { return 0; }
+
+bool __availability_version_check(unsigned int platform, unsigned int *versions)
+{
+    (void)platform; (void)versions;
+    return true;
+}
