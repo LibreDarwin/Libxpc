@@ -95,3 +95,18 @@ void __xpc_connection_set_event_handler_f(xpc_connection_t c, void *h)
 {
     (void)c; (void)h;
 }
+
+void __xpc_data_set_value(xpc_object_t obj, xpc_object_t value)
+{
+    (void)obj; (void)value;
+}
+
+void __xpc_double_set_value(xpc_object_t obj, double value)
+{
+    (void)obj; (void)value;
+}
+
+void __xpc_int64_set_value(xpc_object_t obj, int64_t value)
+{
+    (void)obj; (void)value;
+}
