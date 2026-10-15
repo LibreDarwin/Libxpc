@@ -125,3 +125,21 @@ const char *__xpc_event_key_stream_name(void)
 {
     return "stream";
 }
+
+mach_port_t __xpc_fd_get_port(int fd)
+{
+    (void)fd;
+    return MACH_PORT_NULL;
+}
+
+int __xpc_pipe_interface_routine_async(void *a1, void *a2, void *a3, void *a4, void *a5)
+{
+    (void)a1; (void)a2; (void)a3; (void)a4; (void)a5;
+    return -1;
+}
+
+int __xpc_pipe_interface_simpleroutine(void *a1, void *a2, void *a3, void *a4)
+{
+    (void)a1; (void)a2; (void)a3; (void)a4;
+    return -1;
+}
