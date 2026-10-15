@@ -72,3 +72,26 @@ void __xpc_bool_set_value(xpc_object_t b, bool v)
 {
     (void)b; (void)v;
 }
+
+xpc_object_t __xpc_connection_create_internal_listener(const char *name, uint64_t flags)
+{
+    (void)name; (void)flags;
+    return NULL;
+}
+
+xpc_object_t __xpc_connection_get_parent_4test(xpc_object_t c)
+{
+    (void)c;
+    return NULL;
+}
+
+mach_port_t __xpc_connection_get_recvp_4test(xpc_object_t c)
+{
+    (void)c;
+    return MACH_PORT_NULL;
+}
+
+void __xpc_connection_set_event_handler_f(xpc_connection_t c, void *h)
+{
+    (void)c; (void)h;
+}
