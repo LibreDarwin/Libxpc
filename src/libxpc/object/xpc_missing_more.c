@@ -81,10 +81,12 @@ xpc_object_t _xpc_connection_get_parent_4test(xpc_object_t c)
     return NULL;
 }
 
-mach_port_t _xpc_connection_get_recvp_4test(xpc_object_t c)
+mach_port_t _xpc_connection_get_recvp_4test(xpc_connection_t c)
 {
-    (void)c;
-    return MACH_PORT_NULL;
+    if (c == NULL || !XPC_OBJECT_CHECK(c, &_xpc_type_connection)) {
+        return MACH_PORT_NULL;
+    }
+    return ((struct _xpc_connection_s *)(void *)c)->recv_right;
 }
 
 void _xpc_connection_set_event_handler_f(xpc_connection_t c, void *h)
