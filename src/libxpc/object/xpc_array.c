@@ -361,7 +361,7 @@ xpc_array_create_connection(xpc_object_t xarray, size_t index)
     return (xpc_object_t)(void *)conn;
 }
 xpc_object_t
-_xpc_array_copy_mach_send(xpc_object_t xarray, size_t index)
+xpc_array_copy_mach_send(xpc_object_t xarray, size_t index)
 {
     xpc_object_t obj = xpc_array_get_value(xarray, index);
     if (!obj || obj->isa != &_xpc_type_mach_send) return NULL;
@@ -379,7 +379,7 @@ _xpc_array_copy_mach_send(xpc_object_t xarray, size_t index)
 }
 
 void
-_xpc_array_set_mach_send(xpc_object_t xarray, size_t index, mach_port_t port)
+xpc_array_set_mach_send(xpc_object_t xarray, size_t index, mach_port_t port)
 {
     xpc_object_t obj = xpc_mach_send_create(port);
     if (!obj) return;
@@ -388,7 +388,7 @@ _xpc_array_set_mach_send(xpc_object_t xarray, size_t index, mach_port_t port)
 }
 
 void
-_xpc_array_set_pointer(xpc_object_t xarray, size_t index, void *ptr)
+xpc_array_set_pointer(xpc_object_t xarray, size_t index, void *ptr)
 {
     xpc_object_t obj = xpc_pointer_create(ptr);
     if (!obj) return;
@@ -397,7 +397,7 @@ _xpc_array_set_pointer(xpc_object_t xarray, size_t index, void *ptr)
 }
 
 void *
-_xpc_array_get_pointer(xpc_object_t xarray, size_t index)
+xpc_array_get_pointer(xpc_object_t xarray, size_t index)
 {
     xpc_object_t obj = xpc_array_get_value(xarray, index);
     if (!obj || obj->isa != &_xpc_type_pointer) return NULL;

@@ -111,7 +111,7 @@ xpc_mach_send_get_right(xpc_object_t obj)
 }
 
 mach_port_t
-_xpc_mach_send_copy_right(xpc_object_t obj)
+xpc_mach_send_copy_right(xpc_object_t obj)
 {
     mach_port_t port = _xpc_mach_send_get_right(obj);
     if (port == MACH_PORT_NULL) return MACH_PORT_NULL;
@@ -132,7 +132,7 @@ _xpc_mach_send_copy_right(xpc_object_t obj)
 }
 
 xpc_object_t
-_xpc_mach_send_create_with_disposition(mach_port_t port, mach_msg_type_name_t disp)
+xpc_mach_send_create_with_disposition(mach_port_t port, mach_msg_type_name_t disp)
 {
     if (port == MACH_PORT_NULL || port == MACH_PORT_DEAD) {
         if (port != MACH_PORT_DEAD) {
@@ -208,7 +208,7 @@ _xpc_mach_send_create_with_disposition(mach_port_t port, mach_msg_type_name_t di
 }
 
 xpc_object_t
-_xpc_mach_send_once_create(mach_port_t port)
+xpc_mach_send_once_create(mach_port_t port)
 {
     xpc_mach_send_t *m = XPC_CAST(xpc_mach_send_t,
         xpc_object_alloc(&_xpc_type_mach_send_once, sizeof(xpc_mach_send_t)));
@@ -219,7 +219,7 @@ _xpc_mach_send_once_create(mach_port_t port)
 }
 
 mach_port_t
-_xpc_mach_send_once_extract_right(xpc_object_t obj)
+xpc_mach_send_once_extract_right(xpc_object_t obj)
 {
     if (!XPC_OBJECT_CHECK(obj, &_xpc_type_mach_send_once)) return MACH_PORT_NULL;
     xpc_mach_send_t *m = XPC_CAST(xpc_mach_send_t, obj);
