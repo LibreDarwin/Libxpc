@@ -5,6 +5,7 @@
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #include <stdio.h>
+#include <pthread.h>
 
 void xpc_connection_set_logging(xpc_connection_t c, int level) { (void)c; (void)level; }
 
@@ -71,7 +72,7 @@ xpc_object_t _xpc_bool_create_distinct(bool v)
 
 void _xpc_bool_set_value(xpc_object_t b, bool v)
 {
-    (void)b; (void)v;
+    xpc_bool_set_value(b, v);
 }
 
 xpc_object_t _xpc_connection_get_parent_4test(xpc_object_t c)
@@ -91,19 +92,19 @@ void _xpc_connection_set_event_handler_f(xpc_connection_t c, void *h)
     (void)c; (void)h;
 }
 
-void _xpc_data_set_value(xpc_object_t obj, xpc_object_t value)
+void _xpc_data_set_value(xpc_object_t obj, const void *bytes, size_t length)
 {
-    (void)obj; (void)value;
+    xpc_data_set_value(obj, bytes, length);
 }
 
 void _xpc_double_set_value(xpc_object_t obj, double value)
 {
-    (void)obj; (void)value;
+    xpc_double_set_value(obj, value);
 }
 
 void _xpc_int64_set_value(xpc_object_t obj, int64_t value)
 {
-    (void)obj; (void)value;
+    xpc_int64_set_value(obj, value);
 }
 
 const char *_xpc_error_key_description(void)
@@ -121,10 +122,10 @@ const char *_xpc_event_key_stream_name(void)
     return "stream";
 }
 
-mach_port_t _xpc_fd_get_port(int fd)
+mach_port_t _xpc_fd_get_port(xpc_object_t obj)
 {
-    (void)fd;
-    return MACH_PORT_NULL;
+    if (!XPC_OBJECT_CHECK(obj, &_xpc_type_fd)) return MACH_PORT_NULL;
+    return XPC_CAST(xpc_fd_t, obj)->port;
 }
 
 int _xpc_pipe_interface_routine_async(void *a1, void *a2, void *a3, void *a4, void *a5)
@@ -160,8 +161,23 @@ const void *_xpc_vtables(void) { return NULL; }
 
 const void *_xpc_runtime_get_entitlements_data(void) { return NULL; }
 const void *_xpc_runtime_get_self_entitlements(void) { return NULL; }
-bool _xpc_runtime_is_app_sandboxed(void) { return false; }
-bool _xpc_runtime_process_has_entered_sandbox(void) { return false; }
+
+/*
+ * _xpc_runtime_is_app_sandboxed() — Apple caches the result of the
+ * containerization check in a process-global.  A process is app-sandboxed
+ * when it was spawned into an App Sandbox container, which the kernel
+ * exposes via the APP_SANDBOX_CONTAINER_ID environment variable.
+ */
+bool _xpc_runtime_is_app_sandboxed(void)
+{
+    static int cached = -1;
+    if (cached < 0) {
+        cached = (getenv("APP_SANDBOX_CONTAINER_ID") != NULL) ? 1 : 0;
+    }
+    return cached != 0;
+}
+
+void _xpc_runtime_process_has_entered_sandbox(void) { }
 
 int _xpc_service_routine(void *a, void *b, void *c, void *d, void *e, void *f)
 {
@@ -169,33 +185,52 @@ int _xpc_service_routine(void *a, void *b, void *c, void *d, void *e, void *f)
     return 0;
 }
 
-xpc_object_t _xpc_session_create_from_connection_4SWIFT(void *c)
+xpc_object_t _xpc_session_create_from_connection_4SWIFT(xpc_connection_t conn,
+    const char *name, uint64_t flags, xpc_rich_error_t *error_out)
 {
-    (void)c;
-    return NULL;
+    (void)name;
+    (void)flags;
+    if (error_out) *error_out = NULL;
+    if (!conn) return NULL;
+    struct _xpc_session_s *s = (struct _xpc_session_s *)(void *)
+        xpc_object_alloc(&_xpc_type_session, sizeof(*s));
+    if (!s) return NULL;
+    s->connection = (xpc_connection_t)(void *)xpc_retain((xpc_object_t)(void *)conn);
+    return (xpc_object_t)(void *)s;
 }
 
-void *_xpc_session_extract_connection_4SWIFT(void *s)
+void *_xpc_session_extract_connection_4SWIFT(void *sess)
 {
-    (void)s;
-    return NULL;
+    if (!XPC_OBJECT_CHECK(sess, &_xpc_type_session)) return NULL;
+    struct _xpc_session_s *s = (struct _xpc_session_s *)sess;
+    xpc_connection_t c = s->connection;
+    s->connection = NULL;
+    return c;
 }
 
-bool _xpc_session_get_peer_audit_token_4SWIFT(void *s, void *tok)
+bool _xpc_session_get_peer_audit_token_4SWIFT(audit_token_t *token, void *sess)
 {
-    (void)s; (void)tok;
-    return false;
+    if (token) memset(token, 0, sizeof(*token));
+    if (!token || !XPC_OBJECT_CHECK(sess, &_xpc_type_session)) return false;
+    xpc_connection_t c = ((struct _xpc_session_s *)sess)->connection;
+    if (!c) return false;
+    struct _xpc_connection_s *conn = (struct _xpc_connection_s *)(void *)c;
+    pthread_mutex_lock(&conn->lock);
+    bool have = conn->have_peer_audit;
+    if (have) *token = conn->peer_audit;
+    pthread_mutex_unlock(&conn->lock);
+    return have;
 }
 
 mach_port_t _xpc_shmem_get_mach_port(void *sh)
 {
-    (void)sh;
-    return MACH_PORT_NULL;
+    if (!XPC_OBJECT_CHECK(sh, &_xpc_type_shmem)) return MACH_PORT_NULL;
+    return XPC_CAST(xpc_shmem_t, sh)->port;
 }
 
 void _xpc_string_set_value(xpc_object_t o, const char *v)
 {
-    (void)o; (void)v;
+    xpc_string_set_value(o, v);
 }
 
 void _xpc_domain_routine(void *a, void *b, void *c)
