@@ -4,6 +4,8 @@
 mach_port_t
 xpc_fd_get_port(xpc_object_t fd)
 {
-    (void)fd;
-    return MACH_PORT_NULL;
+    if (fd == NULL || !XPC_OBJECT_CHECK(fd, &_xpc_type_fd)) {
+        return MACH_PORT_NULL;
+    }
+    return XPC_CAST(xpc_fd_t, fd)->port;
 }

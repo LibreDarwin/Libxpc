@@ -13,13 +13,17 @@ xpc_shmem_create_readonly(void *buffer, size_t length)
 size_t
 xpc_shmem_get_length(xpc_object_t object)
 {
-    (void)object;
-    return 0;
+    if (object == NULL || !XPC_OBJECT_CHECK(object, &_xpc_type_shmem)) {
+        return 0;
+    }
+    return (size_t)XPC_CAST(xpc_shmem_t, object)->size;
 }
 
 mach_port_t
 xpc_shmem_get_mach_port(xpc_object_t object)
 {
-    (void)object;
-    return MACH_PORT_NULL;
+    if (object == NULL || !XPC_OBJECT_CHECK(object, &_xpc_type_shmem)) {
+        return MACH_PORT_NULL;
+    }
+    return XPC_CAST(xpc_shmem_t, object)->port;
 }

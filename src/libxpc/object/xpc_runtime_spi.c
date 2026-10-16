@@ -1,5 +1,6 @@
 #include "xpc_internal.h"
 #include <stddef.h>
+#include <stdlib.h>
 
 void *
 xpc_runtime_get_entitlements_data(void)
@@ -16,7 +17,11 @@ xpc_runtime_get_self_entitlements(void)
 bool
 xpc_runtime_is_app_sandboxed(void)
 {
-    return false;
+    static int cached = -1;
+    if (cached < 0) {
+        cached = (getenv("APP_SANDBOX_CONTAINER_ID") != NULL) ? 1 : 0;
+    }
+    return cached != 0;
 }
 
 bool
