@@ -66,6 +66,7 @@ extern "C" {
 enum xpc_launchd_subsystem {
     XPC_LAUNCHD_SUBSYSTEM_SERVICE       = 2,
     XPC_LAUNCHD_SUBSYSTEM_DOMAIN        = 3,
+    XPC_LAUNCHD_SUBSYSTEM_EVENT         = 4,
     XPC_LAUNCHD_SUBSYSTEM_LAUNCH        = 7,
     XPC_LAUNCHD_SUBSYSTEM_CONTROL       = 8,
     XPC_LAUNCHD_SUBSYSTEM_JOB           = 10,
@@ -203,6 +204,8 @@ int xpc_domain_routine(uint64_t routine, xpc_object_t request,
 int xpc_service_routine(uint64_t routine, xpc_object_t request,
     xpc_object_t *reply);
 int xpc_control_routine(uint64_t routine, xpc_object_t request,
+    xpc_object_t *reply);
+int xpc_event_routine(uint64_t routine, xpc_object_t request,
     xpc_object_t *reply);
 
 /* Pipe variant with an explicit flag word (passthrough to mach_msg opts).

@@ -339,6 +339,13 @@ xpc_control_routine(uint64_t routine, xpc_object_t request, xpc_object_t *reply)
         request, reply, false, 0);
 }
 
+int
+xpc_event_routine(uint64_t routine, xpc_object_t request, xpc_object_t *reply)
+{
+    return xpc_pipe_routine_checked(XPC_LAUNCHD_SUBSYSTEM_EVENT, routine,
+        request, reply, false, 0);
+}
+
 #pragma mark - error descriptions
 
 const char *
