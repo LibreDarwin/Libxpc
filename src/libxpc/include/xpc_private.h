@@ -75,6 +75,7 @@ enum xpc_launchd_domain_routine {
        domain-port}. launchctl emits this housekeeping probe before every
        command; not part of this implementation's dispatch. */
     XPC_ROUTINE_SERVICE_STATUS = 0xcf,
+    XPC_ROUTINE_ACTIVATE    = 0x325, /* activate on-demand sockets */
     XPC_ROUTINE_BOOTSTRAP   = 0x320, /* bootstrap a service/domain */
     XPC_ROUTINE_BOOTOUT     = 0x321, /* tear down a domain/service */
     XPC_ROUTINE_KILL        = 0x32c, /* signal a service instance */
