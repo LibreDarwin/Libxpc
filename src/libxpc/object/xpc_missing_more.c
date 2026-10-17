@@ -183,10 +183,12 @@ bool _xpc_runtime_is_app_sandboxed(void)
 
 void _xpc_runtime_process_has_entered_sandbox(void) { }
 
-int _xpc_service_routine(void *a, void *b, void *c, void *d, void *e, void *f)
+/* Apple's __xpc_service_routine: the service-subsystem (2) routine plane. */
+int _xpc_service_routine(uint64_t routine, xpc_object_t request,
+    xpc_object_t *reply)
 {
-    (void)a; (void)b; (void)c; (void)d; (void)e; (void)f;
-    return 0;
+    return xpc_pipe_routine_checked(XPC_LAUNCHD_SUBSYSTEM_SERVICE, routine,
+        request, reply, false, 0);
 }
 
 xpc_object_t _xpc_session_create_from_connection_4SWIFT(xpc_connection_t conn,
@@ -237,9 +239,12 @@ void _xpc_string_set_value(xpc_object_t o, const char *v)
     xpc_string_set_value(o, v);
 }
 
-void _xpc_domain_routine(void *a, void *b, void *c)
+/* Apple's __xpc_domain_routine: the domain-subsystem (3) routine plane. */
+int _xpc_domain_routine(uint64_t routine, xpc_object_t request,
+    xpc_object_t *reply)
 {
-    (void)a; (void)b; (void)c;
+    return xpc_pipe_routine_checked(XPC_LAUNCHD_SUBSYSTEM_DOMAIN, routine,
+        request, reply, false, 0);
 }
 
 // Minimal launch_data/bootstrap/vproc stubs to match exports
