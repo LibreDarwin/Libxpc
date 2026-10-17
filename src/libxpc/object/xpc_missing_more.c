@@ -6,6 +6,7 @@
 #include <sys/sysctl.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <unistd.h>
 
 void xpc_connection_set_logging(xpc_connection_t c, int level) { (void)c; (void)level; }
 
@@ -270,7 +271,60 @@ mach_msg_return_t _xpc_pipe_handle_mig(mach_msg_header_t *msg, mach_msg_header_t
 	(void)msg; (void)reply;
 	return MACH_MSG_SUCCESS;
 }
-int _launch_msg2(void) { return 0; }
+/*
+ * Apple's __xpc_launch_routine(): invoke the "launch" meta-subsystem (7) with
+ * `routine`, then unwrap the reply's "response" object.  On failure the reply
+ * is a uint64 carrying the error code.
+ */
+static xpc_object_t
+xpc_launch_routine(uint64_t routine, xpc_object_t request)
+{
+	xpc_object_t inner = NULL;
+	int rc = xpc_pipe_routine_checked(XPC_LAUNCHD_SUBSYSTEM_LAUNCH, routine,
+	    request, &inner, false, 0);
+	if (rc == 0) {
+		xpc_object_t response = inner ? xpc_dictionary_get_value(inner,
+		    "response") : NULL;
+		if (response) {
+			xpc_object_t result = xpc_retain(response);
+			xpc_release(inner);
+			return result;
+		}
+		if (inner) {
+			xpc_release(inner);
+		}
+		rc = 0x76;
+	}
+	return xpc_uint64_create((uint64_t)rc);
+}
+
+/* Apple's __launch_msg2(): wrap a launch request as {type,handle,request} and
+ * dispatch it through the launch meta-subsystem (routine 100). */
+xpc_object_t _launch_msg2(xpc_object_t request, int type, uint64_t handle)
+{
+	xpc_object_t dict = xpc_dictionary_create(NULL, NULL, 0);
+	uint64_t kind;
+	if (type == 0) {
+		kind = 1;
+		handle = 0;
+	} else if (type == 2) {
+		kind = 3;
+	} else if (type == 1) {
+		kind = 2;
+		if (handle == (uint64_t)-1) {
+			handle = getuid();
+		}
+	} else {
+		kind = 7;
+		handle = 0;
+	}
+	xpc_dictionary_set_uint64(dict, "type", kind);
+	xpc_dictionary_set_uint64(dict, "handle", handle);
+	xpc_dictionary_set_value(dict, "request", request);
+	xpc_object_t reply = xpc_launch_routine(100, dict);
+	xpc_release(dict);
+	return reply;
+}
 /* Apple's server-test hook: a raw passthrough into launchd subsystem 0xd. */
 void _launch_server_test_routine(uint64_t routine, xpc_object_t request,
     xpc_object_t *reply)
@@ -279,7 +333,13 @@ void _launch_server_test_routine(uint64_t routine, xpc_object_t request,
 }
 void* _launch_service_stats_copy_impl(void) { return NULL; }
 void* _launch_service_stats_copy_4ppse_impl(void) { return NULL; }
-int _launch_trial_factors_routine(void) { return 0; }
+/* Apple's trial-factors hook: raw passthrough into subsystem 0xc. */
+int _launch_trial_factors_routine(uint64_t routine, xpc_object_t request,
+    xpc_object_t *reply)
+{
+	return xpc_pipe_routine_checked(XPC_LAUNCHD_SUBSYSTEM_TRIAL_FACTORS, routine,
+	    request, reply, false, 0);
+}
 void __vprocmgr_log_forward(void *r, int l) { (void)r; (void)l; }
 int __vprocmgr_move_subset_to_user(void *a,void *b,void *c) { (void)a;(void)b;(void)c; return 0; }
 int __vprocmgr_switch_to_session(void *s, void *t) { (void)s;(void)t; return 0; }
