@@ -267,7 +267,12 @@ mach_msg_return_t _xpc_pipe_handle_mig(mach_msg_header_t *msg, mach_msg_header_t
 	return MACH_MSG_SUCCESS;
 }
 int _launch_msg2(void) { return 0; }
-int _launch_server_test_routine(void) { return 0; }
+/* Apple's server-test hook: a raw passthrough into launchd subsystem 0xd. */
+void _launch_server_test_routine(uint64_t routine, xpc_object_t request,
+    xpc_object_t *reply)
+{
+	xpc_pipe_routine_checked(0xd, routine, request, reply, false, 0);
+}
 void* _launch_service_stats_copy_impl(void) { return NULL; }
 void* _launch_service_stats_copy_4ppse_impl(void) { return NULL; }
 int _launch_trial_factors_routine(void) { return 0; }
