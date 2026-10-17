@@ -47,10 +47,13 @@ bool _availability_version_check(unsigned int platform, unsigned int *versions)
     return true;
 }
 
-int _launch_job_routine(void *job, void *resp, int a3, int a4, int a5, int a6, int a7, int a8)
+/* Apple's job-routine hooks: raw interface calls into the launchd job
+ * (subsystem 10) and job-query (subsystem 11) subsystems. */
+int _launch_job_routine(uint64_t routine, xpc_object_t request,
+    xpc_object_t *reply)
 {
-    (void)job; (void)resp; (void)a3; (void)a4; (void)a5; (void)a6; (void)a7; (void)a8;
-    return 0;
+	return xpc_pipe_routine_checked(XPC_LAUNCHD_SUBSYSTEM_JOB, routine, request,
+	    reply, false, 0);
 }
 
 int _launch_job_routine_async(void *job, void *resp, int a3, int a4, int a5, int a6, int a7, int a8)
@@ -59,10 +62,11 @@ int _launch_job_routine_async(void *job, void *resp, int a3, int a4, int a5, int
     return 0;
 }
 
-int _launch_job_query_routine(void *job, void *resp, int a3, int a4, int a5, int a6, int a7, int a8)
+int _launch_job_query_routine(uint64_t routine, xpc_object_t request,
+    xpc_object_t *reply)
 {
-    (void)job; (void)resp; (void)a3; (void)a4; (void)a5; (void)a6; (void)a7; (void)a8;
-    return 0;
+	return xpc_pipe_routine_checked(XPC_LAUNCHD_SUBSYSTEM_JOB_QUERY, routine,
+	    request, reply, false, 0);
 }
 
 xpc_object_t _xpc_bool_create_distinct(bool v)

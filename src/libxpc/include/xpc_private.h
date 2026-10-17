@@ -64,9 +64,11 @@ extern "C" {
  * selects the operation.  (docs/GUIDE.md — routine tables.)
  */
 enum xpc_launchd_subsystem {
-    XPC_LAUNCHD_SUBSYSTEM_SERVICE = 2,
-    XPC_LAUNCHD_SUBSYSTEM_DOMAIN  = 3,
-    XPC_LAUNCHD_SUBSYSTEM_CONTROL = 8,
+    XPC_LAUNCHD_SUBSYSTEM_SERVICE   = 2,
+    XPC_LAUNCHD_SUBSYSTEM_DOMAIN    = 3,
+    XPC_LAUNCHD_SUBSYSTEM_CONTROL   = 8,
+    XPC_LAUNCHD_SUBSYSTEM_JOB       = 10,
+    XPC_LAUNCHD_SUBSYSTEM_JOB_QUERY = 11,
 };
 
 /* Domain subsystem routines (xpc_domain_routine selector). */
