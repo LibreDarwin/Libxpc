@@ -1,6 +1,8 @@
 #include "xpc_internal.h"
+#include "../include/xpc_private.h"
 #include <stddef.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 void *
 xpc_runtime_get_entitlements_data(void)
@@ -11,7 +13,13 @@ xpc_runtime_get_entitlements_data(void)
 void *
 xpc_runtime_get_self_entitlements(void)
 {
-    return NULL;
+    static xpc_object_t entitlements;
+    static bool inited;
+    if (!inited) {
+        entitlements = xpc_copy_entitlements_for_pid(getpid());
+        inited = true;
+    }
+    return entitlements;
 }
 
 bool

@@ -109,20 +109,11 @@ void _xpc_int64_set_value(xpc_object_t obj, int64_t value)
     xpc_int64_set_value(obj, value);
 }
 
-const char *_xpc_error_key_description(void)
-{
-    return "description";
-}
+const char *const _xpc_error_key_description = "XPCErrorDescription";
 
-const char *_xpc_event_key_name(void)
-{
-    return "name";
-}
+const char *const _xpc_event_key_name = "XPCEventName";
 
-const char *_xpc_event_key_stream_name(void)
-{
-    return "stream";
-}
+const char *const _xpc_event_key_stream_name = "XPCEventStreamName";
 
 mach_port_t _xpc_fd_get_port(xpc_object_t obj)
 {
@@ -161,8 +152,14 @@ const void *_xpc_type_serializer(void) { return NULL; }
 const void *_xpc_type_string_cache(void) { return NULL; }
 const void *_xpc_vtables(void) { return NULL; }
 
+extern void *xpc_runtime_get_self_entitlements(void);
+
 const void *_xpc_runtime_get_entitlements_data(void) { return NULL; }
-const void *_xpc_runtime_get_self_entitlements(void) { return NULL; }
+
+const void *_xpc_runtime_get_self_entitlements(void)
+{
+    return xpc_runtime_get_self_entitlements();
+}
 
 /*
  * _xpc_runtime_is_app_sandboxed() — Apple caches the result of the

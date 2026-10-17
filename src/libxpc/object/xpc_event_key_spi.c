@@ -3,11 +3,11 @@
 const char *
 xpc_event_key_name(void)
 {
-    return NULL;
+    return "XPCEventName";
 }
 
 const char *
 xpc_event_key_stream_name(void)
 {
-    return NULL;
+    return "XPCEventStreamName";
 }
