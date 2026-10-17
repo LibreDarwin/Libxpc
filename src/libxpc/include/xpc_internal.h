@@ -483,6 +483,11 @@ xpc_object_t xpc_shmem_create_owned(mach_port_t port, uint64_t size);
  * right and forget its same-task origin record. */
 void xpc_shmem_dispose(xpc_shmem_t *s);
 mach_port_t xpc_shmem_get_port(xpc_object_t obj);
+/* Apple's __xpc_shmem_create_with_prot: map *region of *length bytes as a
+ * memory entry with the given protections and return the owned shmem
+ * object, or NULL.  xpc_shmem_create is the read/write case and
+ * xpc_shmem_create_readonly the read-only one. */
+xpc_object_t xpc_shmem_create_with_prot(void *region, size_t length, int prot);
 
 #pragma mark - Connection subsystem (xpc_connection.c, xpc_session.c)
 

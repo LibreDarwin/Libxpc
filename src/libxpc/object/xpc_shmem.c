@@ -55,6 +55,8 @@
 #include "xpc_internal.h"
 
 #include <mach/mach_vm.h>
+#include <mach/memory_object_types.h>
+#include <mach/vm_prot.h>
 
 /* Port → origin-region table for locally-created entries.  Bounded and
  * intentionally simple: the only same-task callers are the stub's
@@ -156,20 +158,34 @@ xpc_shmem_dispose(xpc_shmem_t *s)
     }
 }
 
-/* Public API (xpc_private.h): map *region of *length bytes as a memory
- * entry and wrap the resulting send right.  Return NULL if the region or
- * entry cannot be created. */
+/* Apple's __xpc_shmem_create_with_prot: map *region of *length bytes as a
+ * memory entry with the requested protections and wrap the resulting send
+ * right as an owned shmem object.  The permission handed to the kernel
+ * carries VM_PROT_IS_MASK (the protection bits are a mask against the
+ * entry's real protections), plus MAP_MEM_VM_SHARE (extract a VM range for
+ * remap) — the latter is retried away if mach_make_memory_entry_64 rejects
+ * it.  Return NULL if the region or entry cannot be created. */
 xpc_object_t
-xpc_shmem_create(void *region, size_t length)
+xpc_shmem_create_with_prot(void *region, size_t length, int prot)
 {
     if (!region || length == 0) return NULL;
     mach_port_t entry = MACH_PORT_NULL;
     /* Audited MIG: size is in/out (clamped up to a page on return). */
     memory_object_size_t size = (memory_object_size_t)length;
+    vm_prot_t permission = (vm_prot_t)prot | VM_PROT_IS_MASK | MAP_MEM_VM_SHARE;
     kern_return_t kr = mach_make_memory_entry_64(mach_task_self(), &size,
-        (memory_object_offset_t)(uintptr_t)region,
-        VM_PROT_READ | VM_PROT_WRITE, &entry, MACH_PORT_NULL);
-    if (kr != KERN_SUCCESS || !MACH_PORT_VALID(entry)) return NULL;
+        (memory_object_offset_t)(uintptr_t)region, permission, &entry,
+        MACH_PORT_NULL);
+    if (kr != KERN_SUCCESS) {
+        /* 0x12: the kernel would not extract a VM range for remap.  Retry
+         * without MAP_MEM_VM_SHARE (mask 0x43 = prot | VM_PROT_IS_MASK). */
+        if (kr != 0x12) return NULL;
+        kr = mach_make_memory_entry_64(mach_task_self(), &size,
+            (memory_object_offset_t)(uintptr_t)region,
+            (vm_prot_t)(permission & 0x43), &entry, MACH_PORT_NULL);
+        if (kr != KERN_SUCCESS) return NULL;
+    }
+    if (!MACH_PORT_VALID(entry)) return NULL;
     /* size (in/out) holds the entry's clamped, page-aligned span. */
     xpc_object_t obj = xpc_shmem_create_internal(entry, (uint64_t)size, true);
     if (!obj) {
@@ -179,6 +195,14 @@ xpc_shmem_create(void *region, size_t length)
     XPC_CAST(xpc_shmem_t, obj)->origin = region;
     shmem_origin_add(entry, region);
     return obj;
+}
+
+/* Public API (xpc_private.h): read/write shared memory. */
+xpc_object_t
+xpc_shmem_create(void *region, size_t length)
+{
+    return xpc_shmem_create_with_prot(region, length,
+        VM_PROT_READ | VM_PROT_WRITE);
 }
 
 /* Public API (xpc_private.h): map the memory-entry right back into this

@@ -1,13 +1,12 @@
 #include "xpc_internal.h"
 #include <mach/mach.h>
+#include <mach/vm_prot.h>
 #include <stddef.h>
 
 xpc_object_t
 xpc_shmem_create_readonly(void *buffer, size_t length)
 {
-    (void)buffer;
-    (void)length;
-    return NULL;
+    return xpc_shmem_create_with_prot(buffer, length, VM_PROT_READ);
 }
 
 size_t
