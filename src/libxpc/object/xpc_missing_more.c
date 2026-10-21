@@ -336,8 +336,122 @@ void _launch_server_test_routine(uint64_t routine, xpc_object_t request,
 {
 	xpc_pipe_routine_checked(0xd, routine, request, reply, false, 0);
 }
-void* _launch_service_stats_copy_impl(void) { return NULL; }
-void* _launch_service_stats_copy_4ppse_impl(void) { return NULL; }
+/*
+ * Service-stats collection.  Apple's __xpc_allocate_purgable_buffer()/
+ * __xpc_deallocate_purgable_buffer() manage a page-rounded, purgable
+ * VM region (flags 0xf0000003) used as the shmem the launchd control
+ * routine writes the raw stats records into; __xpc_alloc_typed() is a
+ * zeroed allocation (Apple retries malloc_type_calloc() while the process
+ * is waiting on memory, which never applies to an ordinary caller).
+ */
+void *
+_xpc_alloc_typed(size_t size, void *type)
+{
+	(void)type;
+	return calloc(1, size);
+}
+
+vm_address_t
+_xpc_allocate_purgable_buffer(vm_size_t size)
+{
+	vm_address_t addr = 0;
+	vm_size_t pagesize = (vm_size_t)getpagesize();
+	kern_return_t kr = vm_allocate(mach_task_self(), &addr,
+	    (size + pagesize - 1) & ~(pagesize - 1), 0xf0000003);
+	if (kr != KERN_SUCCESS) {
+		return 0;
+	}
+	return addr;
+}
+
+void
+_xpc_deallocate_purgable_buffer(vm_address_t addr, vm_size_t size)
+{
+	(void)vm_deallocate(mach_task_self(), addr, size);
+}
+
+/* The on-wire stats record is 0x3b bytes; each stats ABI version exposes a
+ * shorter prefix of it, keyed by version - 2 (2..6). */
+static const size_t xpc_service_stats_record_size[] = { 37, 45, 49, 51, 59 };
+
+struct launch_service_stats {
+	xpc_object_t labels;    /* +0x00: retained "labels" value, or NULL */
+	void *data;             /* +0x08: packed records, or NULL */
+	uint32_t count;         /* +0x10: record count */
+	uint32_t dropped;       /* +0x14: dropped-record count */
+};
+
+/*
+ * Apple's __launch_service_stats_copy_impl(): hand a monitor id and an
+ * empty purgable shmem to the launchd control subsystem (0x386), then repack
+ * the raw 0x3b-byte records the daemon wrote into the caller's ABI layout.
+ * An out-parameter and a supported version (2..6) are required.
+ */
+int
+_launch_service_stats_copy_impl(const char *monitor_id, uint64_t shmem_size,
+    struct launch_service_stats *out, int version)
+{
+	if (out == NULL) {
+		fprintf(stderr, "Service stats output must not be NULL.\n");
+		abort();
+	}
+	if ((unsigned)(version - 2) >= 5) {
+		fprintf(stderr, "Unsupported service stats version %d.\n",
+		    version);
+		abort();
+	}
+
+	size_t record_size = xpc_service_stats_record_size[version - 2];
+	vm_size_t pagesize = (vm_size_t)getpagesize();
+	vm_size_t bufsize = ((vm_size_t)(shmem_size & 0xffffffffULL) * 0x3b +
+	    pagesize - 1) & ~(pagesize - 1);
+	vm_address_t buffer = _xpc_allocate_purgable_buffer(bufsize);
+	xpc_object_t shmem = xpc_shmem_create((void *)buffer, bufsize);
+	xpc_object_t dict = xpc_dictionary_create(NULL, NULL, 0);
+	xpc_dictionary_set_string(dict, "monitor_id", monitor_id);
+	xpc_dictionary_set_value(dict, "shmem", shmem);
+	xpc_release(shmem);
+
+	xpc_object_t reply = NULL;
+	int rc = xpc_control_routine(XPC_CONTROL_SERVICE_STATS_COPY, dict,
+	    &reply);
+	if (rc == 0) {
+		out->count = (uint32_t)xpc_dictionary_get_uint64(reply, "count");
+		out->dropped = (uint32_t)xpc_dictionary_get_uint64(reply,
+		    "dropped-count");
+		out->labels = xpc_dictionary_get_value(reply, "labels");
+		if (out->labels != NULL) {
+			xpc_retain(out->labels);
+		}
+		uint32_t count = out->count;
+		if (count != 0) {
+			void *packed = _xpc_alloc_typed(record_size * count, NULL);
+			if (packed != NULL) {
+				for (uint32_t i = 0; i < count; i++) {
+					memcpy((char *)packed + (size_t)i * record_size,
+					    (char *)buffer + (size_t)i * 0x3b,
+					    record_size);
+				}
+			}
+			out->data = packed;
+		}
+	}
+	if (reply != NULL) {
+		xpc_release(reply);
+	}
+	xpc_release(dict);
+	_xpc_deallocate_purgable_buffer(buffer, bufsize);
+	return rc;
+}
+
+/* Apple's _4ppse variant: the default monitor with a 0x1000-record shmem. */
+int
+_launch_service_stats_copy_4ppse_impl(struct launch_service_stats *out,
+    int version)
+{
+	return _launch_service_stats_copy_impl(
+	    "com.apple.launchd.service-stats-default", 0x1000, out, version);
+}
 /* Apple's trial-factors hook: raw passthrough into subsystem 0xc. */
 int _launch_trial_factors_routine(uint64_t routine, xpc_object_t request,
     xpc_object_t *reply)

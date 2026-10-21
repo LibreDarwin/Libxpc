@@ -102,6 +102,7 @@ enum xpc_launchd_domain_routine {
 
 /* Control subsystem routines (xpc_control_routine selector). */
 enum xpc_launchd_control_routine {
+    XPC_CONTROL_SERVICE_STATS_COPY         = 0x386,
     XPC_CONTROL_SERVICE_STATS_IS_ENABLED   = 0x387,
     XPC_CONTROL_SERVICE_STATS_ENABLE       = 0x389,
     XPC_CONTROL_SERVICE_STATS_DISABLE      = 0x38a,
