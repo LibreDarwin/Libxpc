@@ -27,6 +27,12 @@ INCLUDES := -I${.CURDIR}/include -I${SDKROOT}/usr/include
 DEFINES := -DMACOSX -DDARWIN64 -DDARWIN -DBUILD_DARWIN
 CFLAGS	:= -std=c11 -fblocks -g -O0 -Wall -Wextra -Werror \
 		-MMD -MP ${INCLUDES} ${DEFINES}
+# Objective-C is used only by the OS_xpc_bundle bridging class, which mirrors
+# Apple's own NSXPC-visible bundle type.  It is compiled with ARC and the
+# Foundation framework, matching the runtime Apple's class is built against.
+# Every other translation unit remains pure C.
+OBJCFLAGS := -fobjc-arc -fmodules -g -O0 -Wall -Wextra -Werror \
+		-MMD -MP ${INCLUDES} ${DEFINES} -x objective-c
 # vproc_swap_integer is exported deliberately, matching Apple: the SDK's
 # libxpc.tbd and the host's /usr/lib/system/libxpc.dylib both export it (the
 # vproc_* API lives in libxpc, not libSystem).  Apple's libvproc.c implements
@@ -47,7 +53,8 @@ EXPORT_LIST := ${.CURDIR}/export.symbols.txt
 LDFLAGS	:= -dynamiclib -install_name @rpath/libxpc.dylib \
 		-Wl,-exported_symbols_list,${EXPORT_LIST} \
 		-L${SDKROOT}/usr/lib/system -L${SDKROOT}/usr/lib \
-		-lbsm
+		-fobjc-arc \
+		-lbsm -framework Foundation
 
 # Apple's link graph for libxpc: the siblings that still exist as
 # separate /usr/lib/system install names on this SDK generation.
@@ -55,7 +62,11 @@ LIB_SYSTEM_LIBS := -lsystem_info -lsystem_notify -lsystem_trace
 
 LIB_SRCS!=	find ${.CURDIR}/object ${.CURDIR}/wire ${.CURDIR}/pipe \
 		${.CURDIR}/connection -name '*.c' | sort
+LIB_M_SRCS!=	find ${.CURDIR}/object ${.CURDIR}/connection -name '*.m' | sort
 OBJS	:= ${LIB_SRCS:T:S,.c$,.o,:S,^,${OBJDIR}/,}
+.if !empty(LIB_M_SRCS)
+OBJS	+= ${LIB_M_SRCS:T:S,.m$,.o,:S,^,${OBJDIR}/,}
+.endif
 DEPFILES:= ${OBJS:S,.o$,.d,}
 
 .PHONY: all install clean
@@ -73,6 +84,14 @@ ${OBJDIR}/${_s:T:R}.o: ${_s}
 	@mkdir -p ${OBJDIR}
 	${CC} ${CFLAGS} -c ${_s} -o ${.TARGET}
 .endfor
+
+.if !empty(LIB_M_SRCS)
+.for _s in ${LIB_M_SRCS}
+${OBJDIR}/${_s:T:R}.o: ${_s}
+	@mkdir -p ${OBJDIR}
+	${CC} ${OBJCFLAGS} -c ${_s} -o ${.TARGET}
+.endfor
+.endif
 
 ${DYLIB}: ${OBJS} ${EXTRA_OBJS} ${RELEASE}
 	${CC} ${LDFLAGS} -o $@ ${OBJS} ${EXTRA_OBJS} ${LIB_SYSTEM_LIBS}

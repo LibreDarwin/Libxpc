@@ -221,7 +221,6 @@ xpc_connection_t _xpc_connection_create_internal_listener(const char *name, uint
 }
 
 const void *_xpc_type_base(void) { return NULL; }
-const void *_xpc_type_bundle(void) { return NULL; }
 const void *_xpc_type_file_transfer(void) { return NULL; }
 const void *_xpc_type_pipe(void) { return NULL; }
 const void *_xpc_type_serializer(void) { return NULL; }

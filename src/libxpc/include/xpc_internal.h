@@ -90,6 +90,7 @@ typedef enum xpc_kind {
     XPC_KIND_MACH_SEND_ONCE,
     XPC_KIND_PEER_REQUIREMENT,
     XPC_KIND_POINTER,
+    XPC_KIND_BUNDLE,
     XPC_KIND_COUNT,
 } xpc_kind_t;
 
@@ -417,6 +418,7 @@ extern const struct _xpc_type_s _xpc_type_mach_recv;
 extern const struct _xpc_type_s _xpc_type_mach_send_once;
 extern const struct _xpc_type_s _xpc_type_peer_requirement;
 extern const struct _xpc_type_s _xpc_type_pointer;
+extern const struct _xpc_type_s _xpc_type_bundle;
 
 extern xpc_object_t _xpc_bool_true;
 extern xpc_object_t _xpc_bool_false;
@@ -492,6 +494,13 @@ mach_port_t xpc_shmem_get_port(xpc_object_t obj);
  * object, or NULL.  xpc_shmem_create is the read/write case and
  * xpc_shmem_create_readonly the read-only one. */
 xpc_object_t xpc_shmem_create_with_prot(void *region, size_t length, int prot);
+
+#pragma mark - Bundle subsystem (xpc_bundle_impl.c, xpc_bundle_plist.m)
+
+/* Parse <dir>/Contents/Info.plist (binary or XML) into an xpc dictionary, or
+ * return NULL when the file is absent or malformed.  Implemented in
+ * object/xpc_bundle_plist.m using Foundation's property-list reader. */
+xpc_object_t xpc_create_dictionary_from_bundle_path(const char *dir);
 
 #pragma mark - Connection subsystem (xpc_connection.c, xpc_session.c)
 

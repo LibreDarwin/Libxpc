@@ -75,3 +75,4 @@ xpc_kind_from_type(xpc_type_t t)
 }
 const struct _xpc_type_s _xpc_type_service_instance = { "service-instance", XPC_KIND_CONNECTION };
 const struct _xpc_type_s _xpc_type_service          = { "service", XPC_KIND_CONNECTION };
+const struct _xpc_type_s _xpc_type_bundle           = { "bundle", XPC_KIND_BUNDLE };
