@@ -98,6 +98,10 @@ enum xpc_launchd_domain_routine {
     XPC_ROUTINE_ASUSER      = 0x343, /* resolve a user's bootstrap port */
     XPC_ROUTINE_BOOTSHELL   = 0x344, /* launchd shell attach */
     XPC_ROUTINE_QUERY       = 0x34a, /* specifier suggestion query */
+    XPC_ROUTINE_COALITION_INFO = 0x33d, /* coalition info for a cid (basis of
+                                           xpc_coalition_copy_info) */
+    XPC_ROUTINE_COALITION_HISTORY = 0x33e, /* coalition history pipe (basis of
+                                              xpc_coalition_history_pipe_async) */
 };
 
 /* Control subsystem routines (xpc_control_routine selector). */
