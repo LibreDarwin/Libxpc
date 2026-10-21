@@ -61,10 +61,15 @@
 #define PROC_PIDT_ENTITLEMENTS 32
 #endif
 
-xpc_object_t
-xpc_copy_entitlements_for_pid(int pid)
+xpc_object_t xpc_copy_entitlements_data_for_pid(int pid);
+
+/*
+ * Fetch the process's raw entitlements blob.  Returns a malloc'd buffer that
+ * the caller must free, or NULL when the process has no entitlements.
+ */
+static void *
+xpc_copy_entitlements_bytes(int pid, size_t *out_len)
 {
-    xpc_object_t result = NULL;
     void *buf = NULL;
     int sz;
 
@@ -90,7 +95,41 @@ xpc_copy_entitlements_for_pid(int pid)
         free(buf);
         return NULL;
     }
-    result = xpc_wire_deserialize(buf, (size_t)got);
+    *out_len = (size_t)got;
+    return buf;
+}
+
+/*
+ * xpc_copy_entitlements_data_for_pid() — the undecoded entitlements blob,
+ * wrapped as an xpc_data object.  This is what Apple's runtime caches in
+ * __xpc_runtime_get_entitlements_data().
+ */
+xpc_object_t
+xpc_copy_entitlements_data_for_pid(int pid)
+{
+    xpc_object_t result = NULL;
+    size_t len = 0;
+    void *buf = xpc_copy_entitlements_bytes(pid, &len);
+
+    if (!buf) {
+        return NULL;
+    }
+    result = xpc_data_create(buf, len);
+    free(buf);
+    return result;
+}
+
+xpc_object_t
+xpc_copy_entitlements_for_pid(int pid)
+{
+    xpc_object_t result = NULL;
+    size_t len = 0;
+    void *buf = xpc_copy_entitlements_bytes(pid, &len);
+
+    if (!buf) {
+        return NULL;
+    }
+    result = xpc_wire_deserialize(buf, len);
     free(buf);
     return result;
 }

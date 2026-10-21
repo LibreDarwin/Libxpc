@@ -4,10 +4,23 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+extern xpc_object_t xpc_copy_entitlements_data_for_pid(int pid);
+
+/*
+ * xpc_runtime_get_entitlements_data() — the process's undecoded entitlements
+ * blob as an xpc_data object, cached for the lifetime of the process.  Apple
+ * fills the same global from __xpc_copy_entitlements_data(getpid(), 0, 0x10).
+ */
 void *
 xpc_runtime_get_entitlements_data(void)
 {
-    return NULL;
+    static xpc_object_t entitlements_data;
+    static bool inited;
+    if (!inited) {
+        entitlements_data = xpc_copy_entitlements_data_for_pid(getpid());
+        inited = true;
+    }
+    return entitlements_data;
 }
 
 void *

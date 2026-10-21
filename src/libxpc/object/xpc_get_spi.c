@@ -13,11 +13,13 @@ xpc_get_attachment_endpoint(xpc_object_t object)
     return (xpc_endpoint_t)NULL;
 }
 
-void *
-xpc_get_class4NSXPC(xpc_object_t object)
+/*
+ * Apple's xpc_get_class4NSXPC() is literally an empty function: the symbol
+ * exists only so NSXPCConnection code can reference it.
+ */
+void
+xpc_get_class4NSXPC(void)
 {
-    (void)object;
-    return NULL;
 }
 
 /*

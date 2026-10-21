@@ -8,9 +8,25 @@
 #include <pthread.h>
 #include <unistd.h>
 
-void xpc_connection_set_logging(xpc_connection_t c, int level) { (void)c; (void)level; }
+/*
+ * Apple keeps the logging toggle in bit 0x4000 of a per-connection flags
+ * word; level 0 sets the bit, non-zero clears it.  We record the same state
+ * (no log output is produced either way).
+ */
+void __xpc_connection_set_logging(xpc_connection_t connection, int level)
+{
+    if (!XPC_OBJECT_CHECK(connection, &_xpc_type_connection)) {
+        fprintf(stderr, "Given object not of required type.\n");
+        abort();
+    }
+    ((struct _xpc_connection_s *)(void *)connection)->logging_disabled =
+        (level == 0);
+}
 
-void __xpc_connection_set_logging(xpc_connection_t c, int level) { (void)c; (void)level; }
+void xpc_connection_set_logging(xpc_connection_t connection, int level)
+{
+    __xpc_connection_set_logging(connection, level);
+}
 xpc_object_t xpc_payload_create_from_mach_msg(void *msg, size_t size, int *err) { (void)msg; (void)size; if (err) *err = 0; return xpc_dictionary_create(NULL, NULL, 0); }
 bool xpc_peer_requirement_match_token(xpc_object_t req, void *token) { (void)req; if (token == NULL) return true; return false; }
 kern_return_t xpc_pipe_handle_mig(xpc_pipe_t p, void *msg, int *err) { (void)p; (void)msg; if (err) *err = -1; return KERN_FAILURE; }
@@ -42,9 +58,56 @@ int amfi_launch_constraint_set_spawnattr(void) { return -1; }
 int amfi_restricted_execution_mode_enable(void) { return -1; }
 int amfi_restricted_execution_mode_status(void) { return 0; }
 
+/*
+ * clang's @available support.  dyld normally patches the two
+ * _current_dyld_version words in a binary that uses __builtin_available; we
+ * derive them from the running system version instead.  `versions` is an
+ * array of (major, minor) pairs; `platform` is the pair count, with 0, 1 and
+ * 2 given their own fast paths.
+ */
+static unsigned long _current_dyld_version_0;
+static unsigned long _current_dyld_version_1;
+static bool _current_dyld_version_ready;
+
+static void
+xpc_availability_init(void)
+{
+    if (_current_dyld_version_ready) {
+        return;
+    }
+    uint64_t v = os_system_version_get_current_version();
+    _current_dyld_version_0 = (unsigned long)((v >> 16) & 0xffff);
+    _current_dyld_version_1 =
+        (unsigned long)((((v >> 8) & 0xff) << 8) | (v & 0xff));
+    _current_dyld_version_ready = true;
+}
+
 bool _availability_version_check(unsigned int platform, unsigned int *versions)
 {
-    (void)platform; (void)versions;
+    xpc_availability_init();
+    if (platform == 0) {
+        return true;
+    }
+    if (platform == 1) {
+        if (_current_dyld_version_1 < versions[1]) {
+            return versions[0] != _current_dyld_version_0;
+        }
+        return true;
+    }
+    if (platform == 2) {
+        if (versions[0] == _current_dyld_version_0) {
+            return versions[1] <= _current_dyld_version_1;
+        }
+        if (versions[2] != _current_dyld_version_0) {
+            return true;
+        }
+        return versions[3] <= _current_dyld_version_1;
+    }
+    for (unsigned int i = platform; i != 0; i--, versions += 2) {
+        if (versions[0] == _current_dyld_version_0) {
+            return versions[1] <= _current_dyld_version_1;
+        }
+    }
     return true;
 }
 
@@ -158,8 +221,12 @@ const void *_xpc_type_string_cache(void) { return NULL; }
 const void *_xpc_vtables(void) { return NULL; }
 
 extern void *xpc_runtime_get_self_entitlements(void);
+extern void *xpc_runtime_get_entitlements_data(void);
 
-const void *_xpc_runtime_get_entitlements_data(void) { return NULL; }
+const void *_xpc_runtime_get_entitlements_data(void)
+{
+    return xpc_runtime_get_entitlements_data();
+}
 
 const void *_xpc_runtime_get_self_entitlements(void)
 {

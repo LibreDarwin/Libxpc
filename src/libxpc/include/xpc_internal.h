@@ -308,6 +308,10 @@ struct _xpc_connection_s {
     size_t pending_count, pending_cap;
     mach_port_t *reply_ports;
     size_t reply_count, reply_cap;
+
+    /* xpc_connection_set_logging() state.  No logging is emitted today, so
+     * this only records the request Apple keeps in a connection flag bit. */
+    bool logging_disabled;
 };
 
 struct _xpc_session_s {
