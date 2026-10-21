@@ -115,6 +115,7 @@ enum xpc_launchd_service_routine {
     XPC_ROUTINE_SERVICE_BLAME     = 0x2c3, /* blame a service */
     XPC_ROUTINE_SERVICE_PRINT     = 0x2c4, /* per-service state dump */
     XPC_ROUTINE_SERVICE_EXISTS    = 0x2c8, /* exists probe */
+    XPC_ROUTINE_SERVICE_INSTANCE  = 0x2d0, /* service instance uuid ("instance") */
 };
 
 #pragma mark - xpc_global_data

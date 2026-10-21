@@ -50,11 +50,46 @@ xpc_get_event_name(const char *stream, uint64_t token, char *out_name)
     return result;
 }
 
-void *
-xpc_get_instance(const char *service_name)
+/*
+ * Apple's xpc_get_instance(): fill `out_instance` (a 16-byte uuid_t) with
+ * the launchd service-instance uuid for the caller's own pid.  The uuid is
+ * fetched over the service subsystem (routine 0x2d0) under the "instance"
+ * key; a service that has no instance (or is unknown) leaves the buffer
+ * untouched.  Returns non-zero on success.
+ */
+static int
+xpc_get_service_instance(pid_t pid, uuid_t out_instance)
 {
-    (void)service_name;
-    return NULL;
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_object_t reply = NULL;
+    int result;
+
+    xpc_dictionary_set_int64(request, "pid", (int64_t)pid);
+    result = xpc_service_routine(XPC_ROUTINE_SERVICE_INSTANCE, request,
+        &reply);
+    xpc_release(request);
+    if (result != 0) {
+        /* 0x71: the service exists but has no instance yet. */
+        if (reply) {
+            xpc_release(reply);
+        }
+        return 0;
+    }
+    if (reply == NULL) {
+        return 0;
+    }
+    const uint8_t *instance = xpc_dictionary_get_uuid(reply, "instance");
+    if (instance != NULL) {
+        uuid_copy(out_instance, instance);
+    }
+    xpc_release(reply);
+    return instance != NULL;
+}
+
+void
+xpc_get_instance(uuid_t out_instance)
+{
+    (void)xpc_get_service_instance(getpid(), out_instance);
 }
 
 /*
