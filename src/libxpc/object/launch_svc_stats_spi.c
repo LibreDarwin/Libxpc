@@ -12,20 +12,6 @@
  * boolean.
  */
 
-xpc_object_t
-launch_service_stats_copy_4ppse_impl(const char *label)
-{
-    (void)label;
-    return NULL;
-}
-
-xpc_object_t
-launch_service_stats_copy_impl(const char *label)
-{
-    (void)label;
-    return NULL;
-}
-
 int
 launch_service_stats_disable(const char *label)
 {
