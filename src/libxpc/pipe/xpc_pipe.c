@@ -330,14 +330,19 @@ int __xpc_pipe_interface_routine(int a, int b, int c, int d)
     return 0;
 }
 
+/*
+ * Apple's _xpc_pipe_interface_routine() is the Darwin 20+ entry point used by
+ * xpc_pipe_routine_checked(): it sends `request` on `pipe` with the flattened
+ * `routine` selector and returns launchd's "error" value from the reply.  The
+ * subsystem/routine split (and the reentrancy guard) live in the caller, so
+ * this is a thin pass-through onto the wire path.
+ */
 int
-_xpc_pipe_interface_routine(int a, int b, int c, int d)
+_xpc_pipe_interface_routine(xpc_pipe_t pipe, uint64_t routine,
+    xpc_object_t request, xpc_object_t *reply, uint64_t flags)
 {
-    (void)a;
-    (void)b;
-    (void)c;
-    (void)d;
-    return 0;
+    return xpc_pipe_routine_with_flags(pipe, request, reply, flags,
+        (uint32_t)routine);
 }
 
 int xpc_pipe_routine(xpc_pipe_t p, xpc_object_t o, xpc_object_t *r,

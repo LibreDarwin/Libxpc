@@ -195,10 +195,18 @@ int _xpc_pipe_interface_routine_async(void *a1, void *a2, void *a3, void *a4, vo
     return -1;
 }
 
-int _xpc_pipe_interface_simpleroutine(void *a1, void *a2, void *a3, void *a4)
+/*
+ * Apple's _xpc_pipe_interface_simpleroutine() tail-calls the internal
+ * simpleroutine worker (pipe, id, message, reply, flags).  We route it onto
+ * the same fire-and-forget wire path the public xpc_pipe_simpleroutine()
+ * uses; the id/flags are subsumed by XPC_PIPE_ID_SIMPLEROUTINE.
+ */
+int _xpc_pipe_interface_simpleroutine(xpc_pipe_t pipe, uint64_t routine,
+    xpc_object_t request, xpc_object_t *reply, uint64_t flags)
 {
-    (void)a1; (void)a2; (void)a3; (void)a4;
-    return -1;
+    (void)routine;
+    (void)flags;
+    return xpc_pipe_simpleroutine(pipe, request, reply);
 }
 
 xpc_connection_t _xpc_connection_create_internal_listener(const char *name, uint64_t flags)
